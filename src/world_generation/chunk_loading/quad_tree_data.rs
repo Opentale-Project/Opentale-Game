@@ -5,14 +5,14 @@ use std::sync::{Arc, Mutex};
 #[derive(Debug)]
 pub enum QuadTreeNode<T> {
     Data(T, Vec<Entity>),
-    Node(
-        Box<QuadTreeNode<T>>,
-        Box<QuadTreeNode<T>>,
-        Box<QuadTreeNode<T>>,
-        Box<QuadTreeNode<T>>,
-        Arc<Mutex<i32>>,
-        Vec<Entity>,
-    ),
+    Node {
+        bottom_left: Box<QuadTreeNode<T>>,
+        bottom_right: Box<QuadTreeNode<T>>,
+        top_left: Box<QuadTreeNode<T>>,
+        top_right: Box<QuadTreeNode<T>>,
+        child_count: Arc<Mutex<i32>>,
+        chunk_entities: Vec<Entity>,
+    },
 }
 
 pub enum QuadTreeDistinction {
@@ -40,18 +40,24 @@ impl<T> QuadTreeNode<T> {
     {
         match self {
             QuadTreeNode::Data(data, _) => closure(data),
-            QuadTreeNode::Node(a, b, c, d, _, _) => {
-                a.run_on_data(&closure);
-                b.run_on_data(&closure);
-                c.run_on_data(&closure);
-                d.run_on_data(&closure);
+            QuadTreeNode::Node {
+                bottom_left, 
+                bottom_right, 
+                top_left, 
+                top_right, 
+                ..
+            } => {
+                bottom_left.run_on_data(&closure);
+                bottom_right.run_on_data(&closure);
+                top_left.run_on_data(&closure);
+                top_right.run_on_data(&closure);
             }
         }
     }
 
     pub fn add_to_parent(&mut self, depth: i32, position: [i32; 2], commands: &mut Commands) {
         let mut further = false;
-        if let Some(Node(_, _, _, _, child_progress, entities)) =
+        if let Some(Node {child_count: child_progress, chunk_entities: entities, ..}) =
             self.get_parent_node(depth, position)
         {
             let mut child_progress_lock = child_progress.lock().unwrap();
@@ -82,20 +88,26 @@ impl<T> QuadTreeNode<T> {
 
         return match self {
             QuadTreeNode::Data(_, _) => None,
-            QuadTreeNode::Node(a, b, c, d, _, _) => {
+            QuadTreeNode::Node {
+                bottom_left, 
+                bottom_right, 
+                top_left, 
+                top_right, 
+                ..
+            } => {
                 let divider = 2_i32.pow(depth as u32 - 1);
 
                 return if position[0] / divider == 0 {
                     if position[1] / divider == 0 {
-                        a.get_parent_node(depth - 1, position)
+                        bottom_left.get_parent_node(depth - 1, position)
                     } else {
-                        c.get_parent_node(depth - 1, [position[0], position[1] - divider])
+                        top_left.get_parent_node(depth - 1, [position[0], position[1] - divider])
                     }
                 } else {
                     if position[1] / divider == 0 {
-                        b.get_parent_node(depth - 1, [position[0] - divider, position[1]])
+                        bottom_right.get_parent_node(depth - 1, [position[0] - divider, position[1]])
                     } else {
-                        d.get_parent_node(depth - 1, [position[0] - divider, position[1] - divider])
+                        top_right.get_parent_node(depth - 1, [position[0] - divider, position[1] - divider])
                     }
                 };
             }
@@ -109,20 +121,26 @@ impl<T> QuadTreeNode<T> {
 
         return match self {
             QuadTreeNode::Data(_, _) => None,
-            QuadTreeNode::Node(a, b, c, d, _, _) => {
+            QuadTreeNode::Node { 
+                bottom_left, 
+                bottom_right, 
+                top_left, 
+                top_right, 
+                ..
+             } => {
                 let divider = 2_i32.pow(depth as u32 - 1);
 
                 return if position[0] / divider == 0 {
                     if position[1] / divider == 0 {
-                        a.get_node(depth - 1, position)
+                        bottom_left.get_node(depth - 1, position)
                     } else {
-                        c.get_node(depth - 1, [position[0], position[1] - divider])
+                        top_left.get_node(depth - 1, [position[0], position[1] - divider])
                     }
                 } else {
                     if position[1] / divider == 0 {
-                        b.get_node(depth - 1, [position[0] - divider, position[1]])
+                        bottom_right.get_node(depth - 1, [position[0] - divider, position[1]])
                     } else {
-                        d.get_node(depth - 1, [position[0] - divider, position[1] - divider])
+                        top_right.get_node(depth - 1, [position[0] - divider, position[1] - divider])
                     }
                 };
             }

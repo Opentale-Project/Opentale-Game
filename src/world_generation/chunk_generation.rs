@@ -303,8 +303,8 @@ fn generate_quad_tree_chunk(
     }
 
     if divide {
-        return Node(
-            Box::new(generate_quad_tree_chunk(
+        return Node{
+            bottom_left: Box::new(generate_quad_tree_chunk(
                 owner,
                 current_lod.previous(),
                 [current_lod_pos[0] * 2, current_lod_pos[1] * 2],
@@ -313,7 +313,7 @@ fn generate_quad_tree_chunk(
                 commands,
                 vec![],
             )),
-            Box::new(generate_quad_tree_chunk(
+            bottom_right: Box::new(generate_quad_tree_chunk(
                 owner,
                 current_lod.previous(),
                 [current_lod_pos[0] * 2 + 1, current_lod_pos[1] * 2],
@@ -322,7 +322,7 @@ fn generate_quad_tree_chunk(
                 commands,
                 vec![],
             )),
-            Box::new(generate_quad_tree_chunk(
+            top_left: Box::new(generate_quad_tree_chunk(
                 owner,
                 current_lod.previous(),
                 [current_lod_pos[0] * 2, current_lod_pos[1] * 2 + 1],
@@ -331,7 +331,7 @@ fn generate_quad_tree_chunk(
                 commands,
                 vec![],
             )),
-            Box::new(generate_quad_tree_chunk(
+            top_right: Box::new(generate_quad_tree_chunk(
                 owner,
                 current_lod.previous(),
                 [current_lod_pos[0] * 2 + 1, current_lod_pos[1] * 2 + 1],
@@ -340,9 +340,9 @@ fn generate_quad_tree_chunk(
                 commands,
                 vec![],
             )),
-            Arc::new(Mutex::new(0)),
-            despawn_entities,
-        );
+            child_count: Arc::new(Mutex::new(0)),
+            chunk_entities: despawn_entities,
+        };
     }
 
     let child = commands
@@ -462,8 +462,8 @@ fn upgrade_tree_recursion(
 
             // TODO: extract this code into a constructor, 
             // so we're not just looking at a massive wall of text  
-            Node(
-                Box::new(generate_quad_tree_chunk(
+            Node {
+                bottom_left: Box::new(generate_quad_tree_chunk(
                     owner,
                     current_lod.previous(),
                     [current_lod_pos[0] * 2, current_lod_pos[1] * 2],
@@ -472,7 +472,7 @@ fn upgrade_tree_recursion(
                     commands,
                     vec![],
                 )),
-                Box::new(generate_quad_tree_chunk(
+                bottom_right: Box::new(generate_quad_tree_chunk(
                     owner,
                     current_lod.previous(),
                     [current_lod_pos[0] * 2 + 1, current_lod_pos[1] * 2],
@@ -481,7 +481,7 @@ fn upgrade_tree_recursion(
                     commands,
                     vec![],
                 )),
-                Box::new(generate_quad_tree_chunk(
+                top_left: Box::new(generate_quad_tree_chunk(
                     owner,
                     current_lod.previous(),
                     [current_lod_pos[0] * 2, current_lod_pos[1] * 2 + 1],
@@ -490,7 +490,7 @@ fn upgrade_tree_recursion(
                     commands,
                     vec![],
                 )),
-                Box::new(generate_quad_tree_chunk(
+                top_right: Box::new(generate_quad_tree_chunk(
                     owner,
                     current_lod.previous(),
                     [current_lod_pos[0] * 2 + 1, current_lod_pos[1] * 2 + 1],
@@ -499,11 +499,18 @@ fn upgrade_tree_recursion(
                     commands,
                     vec![],
                 )),
-                Arc::new(Mutex::new(0)),
-                entities,
-            )
+                child_count: Arc::new(Mutex::new(0)),
+                chunk_entities: entities,
+            }
         }
-        Node(a, b, c, d, current_mutex, current_entities) => {
+        Node {
+            bottom_left, 
+            bottom_right, 
+            top_left, 
+            top_right, 
+            child_count: current_mutex, 
+            chunk_entities: current_entities
+        } => {
             let mut divide = false;
 
             if current_lod != ChunkLod::Full {
@@ -531,10 +538,10 @@ fn upgrade_tree_recursion(
             }
 
             if divide {
-                return Node(
-                    Box::new(upgrade_tree_recursion(
+                return Node {
+                    bottom_left: Box::new(upgrade_tree_recursion(
                         owner,
-                        &**a,
+                        &**bottom_left,
                         current_lod.previous(),
                         [current_lod_pos[0] * 2, current_lod_pos[1] * 2],
                         owner_chunk_pos,
@@ -542,9 +549,9 @@ fn upgrade_tree_recursion(
                         commands,
                         generated_chunks,
                     )),
-                    Box::new(upgrade_tree_recursion(
+                    bottom_right: Box::new(upgrade_tree_recursion(
                         owner,
-                        &**b,
+                        &**bottom_right,
                         current_lod.previous(),
                         [current_lod_pos[0] * 2 + 1, current_lod_pos[1] * 2],
                         owner_chunk_pos,
@@ -552,9 +559,9 @@ fn upgrade_tree_recursion(
                         commands,
                         generated_chunks,
                     )),
-                    Box::new(upgrade_tree_recursion(
+                    top_left: Box::new(upgrade_tree_recursion(
                         owner,
-                        &**c,
+                        &**top_left,
                         current_lod.previous(),
                         [current_lod_pos[0] * 2, current_lod_pos[1] * 2 + 1],
                         owner_chunk_pos,
@@ -562,9 +569,9 @@ fn upgrade_tree_recursion(
                         commands,
                         generated_chunks,
                     )),
-                    Box::new(upgrade_tree_recursion(
+                    top_right: Box::new(upgrade_tree_recursion(
                         owner,
-                        &**d,
+                        &**top_right,
                         current_lod.previous(),
                         [current_lod_pos[0] * 2 + 1, current_lod_pos[1] * 2 + 1],
                         owner_chunk_pos,
@@ -572,16 +579,16 @@ fn upgrade_tree_recursion(
                         commands,
                         generated_chunks,
                     )),
-                    current_mutex.clone(),
-                    current_entities.clone(),
-                );
+                    child_count: current_mutex.clone(),
+                    chunk_entities: current_entities.clone(),
+                };
             }
 
             let entities = [
-                get_entities_recursive(&**a),
-                get_entities_recursive(&**b),
-                get_entities_recursive(&**c),
-                get_entities_recursive(&**d),
+                get_entities_recursive(&**bottom_left),
+                get_entities_recursive(&**bottom_right),
+                get_entities_recursive(&**top_left),
+                get_entities_recursive(&**top_right),
                 current_entities.clone(),
             ]
             .concat();
@@ -632,10 +639,17 @@ fn get_entities_recursive(
             despawn_children.clone(),
         ]
         .concat(),
-        Node(a, b, c, d, _, despawn_entities) => [
-            get_entities_recursive(&**a),
-            get_entities_recursive(&**b),
-            get_entities_recursive(&**c),
+        Node {
+            bottom_left, 
+            bottom_right, 
+            top_left, 
+            top_right: d, 
+            chunk_entities: despawn_entities,
+            ..
+         } => [
+            get_entities_recursive(&**bottom_left),
+            get_entities_recursive(&**bottom_right),
+            get_entities_recursive(&**top_left),
             get_entities_recursive(&**d),
             despawn_entities.clone(),
         ]
