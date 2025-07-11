@@ -1,11 +1,19 @@
-use crate::world_generation::chunk_generation::oak_structure_generator::OakStructureGenerator;
-use crate::world_generation::chunk_generation::structure_generator::{
-    FixedStructureGenerator, StructureGenerator, VoxelStructureMetadata,
-};
-use crate::world_generation::chunk_generation::tree_structure_generator::TreeStructureGenerator;
-use crate::world_generation::chunk_generation::BlockType;
-use crate::world_generation::chunk_loading::country_cache::{
-    CountryCache, PathCache, StructureCache,
+use crate::world_generation::{
+    chunk_generation::{
+        oak_structure_generator::OakStructureGenerator,
+        structure_generator::{
+            FixedStructureGenerator, 
+            StructureGenerator, 
+            VoxelStructureMetadata,
+        },
+        tree_structure_generator::TreeStructureGenerator,
+        BlockType
+    },
+    chunk_loading::country_cache::{
+        CountryCache, 
+        PathCache, 
+        StructureCache,
+    }
 };
 use bevy::prelude::{IVec2, Resource};
 use fastnoise_lite::FastNoiseLite;
@@ -25,8 +33,12 @@ pub struct GenerationOptionsResource(
 
 impl GenerationOptionsResource {
     pub fn from_seed(seed: u64) -> Self {
-        let tree_house = vox_data_to_structure_data(&from_file("assets/tree_house.vox").unwrap());
-        let box_structure = vox_data_to_structure_data(&from_file("assets/box.vox").unwrap());
+        let tree_house = vox_data_to_structure_data(
+            &from_file("assets/tree_house.vox").unwrap()
+        );
+        let box_structure = vox_data_to_structure_data(
+            &from_file("assets/box.vox").unwrap()
+        );
 
         let mut rng = StdRng::seed_from_u64(seed);
 
@@ -108,7 +120,9 @@ pub enum GenerationState<T> {
 
 pub struct GenerationOptions {
     pub seed: u64,
-    pub structure_generators: Vec<Arc<Box<dyn StructureGenerator + Send + Sync>>>,
+    pub structure_generators: Vec<Arc<Box<
+        dyn StructureGenerator + Send + Sync
+    >>>,
     pub structure_assets: Vec<StructureAsset>,
     pub path_cache: GenerationCache<IVec2, PathCache>,
     pub structure_cache: GenerationCache<IVec2, StructureCache>,
@@ -130,8 +144,16 @@ impl<K: Copy + Eq + Hash, T: GenerationCacheItem<K>> GenerationCache<K, T> {
         }
     }
 
-    pub fn get_cache_entry(&self, key: K, generation_options: &GenerationOptions) -> Arc<T> {
-        self.get_generated_cache_entry(self.get_hash_lock_entry(key), key, generation_options)
+    pub fn get_cache_entry(
+        &self, 
+        key: K, 
+        generation_options: &GenerationOptions
+    ) -> Arc<T> {
+        self.get_generated_cache_entry(
+            self.get_hash_lock_entry(key), 
+            key, 
+            generation_options
+        )
     }
 
     pub fn try_get_entry_no_lock(&self, key: K) -> Option<Arc<T>> {
@@ -200,7 +222,9 @@ pub struct StructureAsset {
 
 fn vox_data_to_blocks(vox_data: &VoxData) -> Vec<Vec<Vec<BlockType>>> {
     let model = vox_data.models.first().unwrap();
-    let mut result: Vec<Vec<Vec<BlockType>>> = Vec::with_capacity(model.size.x as usize);
+    let mut result: Vec<Vec<Vec<BlockType>>> = Vec::with_capacity(
+        model.size.x as usize
+    );
     for x in 0..model.size.x {
         result.push(Vec::with_capacity(model.size.z as usize));
         for y in 0..model.size.z {
@@ -212,9 +236,13 @@ fn vox_data_to_blocks(vox_data: &VoxData) -> Vec<Vec<Vec<BlockType>>> {
     }
 
     for voxel in model.voxels.iter() {
-        let color = vox_data.palette.colors[voxel.color_index.0 as usize];
-        result[voxel.point.x as usize][voxel.point.z as usize][voxel.point.y as usize] =
-            BlockType::Stone;
+        //let color = vox_data.palette.colors[voxel.color_index.0 as usize];
+        let [x, y, z] = [
+            voxel.point.x as usize,
+            voxel.point.y as usize,
+            voxel.point.z as usize,
+        ];
+        result[x][y][z] =BlockType::Stone;
     }
 
     result
@@ -229,7 +257,9 @@ fn vox_data_model_size(vox_data: &VoxData) -> [i32; 3] {
     ]
 }
 
-fn vox_data_to_structure_data(vox_data: &VoxData) -> (Arc<Vec<Vec<Vec<BlockType>>>>, [i32; 3]) {
+fn vox_data_to_structure_data(
+    vox_data: &VoxData
+) -> (Arc<Vec<Vec<Vec<BlockType>>>>, [i32; 3]) {
     (
         Arc::new(vox_data_to_blocks(vox_data)),
         vox_data_model_size(vox_data),

@@ -1,5 +1,6 @@
 use crate::{
     utils::{
+        cartesian_product::cube_cartesian_product,
         rotation::{rotate_around, RotationDirection},
         vec_utils::vec_round_to_int,
     },
@@ -17,6 +18,9 @@ pub struct LSystemEntry<EntryEnum> {
     pub entry_type: EntryEnum,
 }
 
+/// A LindenMayer System used to generate foliage.
+///
+/// See [L-System](https://en.wikipedia.org/wiki/L-system) for more information.
 pub trait LSystem<EntryEnum: Clone + Copy> {
     fn grow_new<const XSIZE: usize, const YSIZE: usize, const ZSIZE: usize>(
         rng: &mut StdRng,
@@ -48,30 +52,31 @@ pub trait LSystem<EntryEnum: Clone + Copy> {
             let center = vec_round_to_int(&entry_pos);
             let thickness = (entry.thickness / VOXEL_SIZE).ceil() as i32;
 
-            for x in -thickness..thickness {
-                for y in -thickness..thickness {
-                    for z in -thickness..thickness {
-                        let current_pos_i =
-                            center + (Vec3::new(x as f32, y as f32, z as f32)).as_ivec3();
-                        let current_pos = current_pos_i.as_vec3();
+            for (x, y, z) in cube_cartesian_product(-thickness..thickness) {
+                // Why are we casting to a float then to an i32
+                // then back to a float?
+                let current_pos_i = center + (Vec3::new(x as f32, y as f32, z as f32)).as_ivec3();
+                let current_pos = current_pos_i.as_vec3();
 
-                        if current_pos_i.x < 0
-                            || current_pos_i.x >= XSIZE as i32
-                            || current_pos_i.y < 0
-                            || current_pos_i.y >= YSIZE as i32
-                            || current_pos_i.z < 0
-                            || current_pos_i.z >= ZSIZE as i32
-                        {
-                            continue;
-                        }
+                if current_pos_i.x < 0
+                    || current_pos_i.x >= XSIZE as i32
+                    || current_pos_i.y < 0
+                    || current_pos_i.y >= YSIZE as i32
+                    || current_pos_i.z < 0
+                    || current_pos_i.z >= ZSIZE as i32
+                {
+                    continue;
+                }
 
-                        if current_pos.distance_squared(entry_pos)
-                            < entry.thickness * entry.thickness / VOXEL_SIZE
-                        {
-                            voxel_grid[current_pos_i.x as usize][current_pos_i.y as usize]
-                                [current_pos_i.z as usize] = Self::get_block_from_entry(entry);
-                        }
-                    }
+                if current_pos.distance_squared(entry_pos)
+                    < entry.thickness * entry.thickness / VOXEL_SIZE
+                {
+                    let [x, y, z] = [
+                        current_pos_i.x as usize,
+                        current_pos_i.y as usize,
+                        current_pos_i.z as usize,
+                    ];
+                    voxel_grid[x][y][z] = Self::get_block_from_entry(entry);
                 }
             }
         });

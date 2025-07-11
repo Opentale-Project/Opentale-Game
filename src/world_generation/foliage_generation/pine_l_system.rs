@@ -1,4 +1,4 @@
-use std::{f32::consts::PI, ops::Range};
+use std::f32::consts::PI;
 
 use bevy::math::{Quat, Vec3};
 use rand::{rngs::StdRng, Rng};
@@ -149,11 +149,7 @@ impl LSystem<PineEntryType> for PineLSystem {
                     }
                 }
             }
-            PineEntryType::Branch {
-                direction,
-                tip,
-                sub_length,
-            } => {}
+            PineEntryType::Branch { .. } => {}
             PineEntryType::SubBranch { direction, tip } => {
                 let ortho = direction.any_orthonormal_vector();
                 let random_angle = rng.random_range(0.0..0.6);

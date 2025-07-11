@@ -5,7 +5,13 @@ use bevy::{
         resource::Resource,
         system::{Commands, Res, ResMut},
     },
-    image::{Image, ImageAddressMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor},
+    image::{
+        Image, 
+        ImageAddressMode, 
+        ImageLoaderSettings, 
+        ImageSampler, 
+        ImageSamplerDescriptor
+    },
     pbr::{ExtendedMaterial, StandardMaterial},
     state::state::{NextState, States},
     utils::default,
@@ -15,27 +21,36 @@ use crate::world_generation::array_texture::ArrayTextureMaterial;
 
 #[derive(Resource)]
 pub struct GenerationAssets {
-    pub material: Handle<ExtendedMaterial<StandardMaterial, ArrayTextureMaterial>>,
+    pub material: Handle<ExtendedMaterial<
+        StandardMaterial, 
+        ArrayTextureMaterial
+    >>,
     pub texture_handle: Handle<Image>,
 }
 
 pub fn load_generation_assets(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, ArrayTextureMaterial>>>,
+    mut materials: ResMut<Assets<ExtendedMaterial<
+        StandardMaterial, 
+        ArrayTextureMaterial
+    >>>,
     mut generation_asset_state: ResMut<NextState<GenerationAssetState>>,
 ) {
-    let texture_handle = asset_server.load_with_settings("array_texture.png", |s: &mut _| {
-        *s = ImageLoaderSettings {
-            sampler: ImageSampler::Descriptor(ImageSamplerDescriptor {
-                // rewriting mode to repeat image,
-                address_mode_u: ImageAddressMode::Repeat,
-                address_mode_v: ImageAddressMode::Repeat,
+    let texture_handle = asset_server.load_with_settings(
+        "array_texture.png", 
+        |s: &mut _| {
+            *s = ImageLoaderSettings {
+                sampler: ImageSampler::Descriptor(ImageSamplerDescriptor {
+                    // rewriting mode to repeat image,
+                    address_mode_u: ImageAddressMode::Repeat,
+                    address_mode_v: ImageAddressMode::Repeat,
+                    ..default()
+                }),
                 ..default()
-            }),
-            ..default()
+            }
         }
-    });
+    );
 
     commands.insert_resource(GenerationAssets {
         material: materials.add(ExtendedMaterial {

@@ -20,7 +20,8 @@ where
 {
     pub const DEFAULT_OCTAVE_COUNT: usize = 6;
     pub const DEFAULT_FREQUENCY: f64 = 1.0;
-    pub const DEFAULT_LACUNARITY: f64 = 2.0; //core::f64::consts::PI * 2.0 / 3.0;
+    pub const DEFAULT_LACUNARITY: f64 = 2.0; 
+    //pub const DEFAULT_LACUNARITY: f64 = core::f64::consts::PI * 2.0 / 3.0;
     pub const DEFAULT_PERSISTENCE: f64 = 0.5;
     pub const DEFAULT_GRADIENT: f64 = 1.;
     pub const DEFAULT_AMPLITUDE: f64 = 1.;
@@ -43,14 +44,18 @@ where
     }
 
     fn calc_scale_factor(persistence: f64, octaves: usize) -> f64 {
-        let denom = (1..=octaves).fold(0.0, |acc, x| acc + persistence.powi(x as i32));
+        let denom = (1..=octaves).fold(0.0, |acc, x| 
+            acc + persistence.powi(x as i32)
+        );
 
         1.0 / denom
     }
 }
 
 impl<T> GFT<T>
-where T: NoiseFn<f64, 2> + Default + Seedable {
+where
+    T: NoiseFn<f64, 2> + Default + Seedable,
+{
     pub fn new(seed: u32) -> Self {
         Self::new_with_source(T::default().set_seed(seed))
     }
@@ -133,11 +138,15 @@ where
             let amplitude = self.amplitude * self.persistence.powi(x);
 
             // Get the signal.
-            let noise_value = self.source.get((point * frequency).into_array());
-            let noise_value_offset_x =
-                self.source.get((point * frequency + offset_x_point).into_array());
-            let noise_value_offset_y =
-                self.source.get((point * frequency + offset_y_point).into_array());
+            let noise_value = self.source.get(
+                (point * frequency).into_array()
+            );
+            let noise_value_offset_x = self
+                .source
+                .get((point * frequency + offset_x_point).into_array());
+            let noise_value_offset_y = self
+                .source
+                .get((point * frequency + offset_y_point).into_array());
 
             let derivative = Vector2::new(
                 (noise_value_offset_x - noise_value) / derivative_offset,

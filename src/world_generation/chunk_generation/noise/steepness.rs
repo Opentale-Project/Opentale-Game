@@ -48,8 +48,14 @@ where
 {
     fn get(&self, point: [f64; 2usize]) -> f64 {
         let value_main = self.source.get(point);
-        let value_offset_x = self.source.get([point[0] + self.sample_offset, point[1]]);
-        let value_offset_y = self.source.get([point[0], point[1] + self.sample_offset]);
+        let value_offset_x = self.source.get([
+            point[0] + self.sample_offset, 
+            point[1]
+        ]);
+        let value_offset_y = self.source.get([
+            point[0], 
+            point[1] + self.sample_offset
+        ]);
 
         let steepness_x = (value_main - value_offset_x).abs();
         let steepness_y = (value_main - value_offset_y).abs();

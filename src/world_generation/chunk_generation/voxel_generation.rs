@@ -37,8 +37,6 @@ pub fn generate_voxels(
         generation_options,
     ))));
 
-    let grass_color_noise = FullCache::new(get_grass_color_noise(generation_options));
-
     let chunk_noise_offset = DVec2::new(position[0] as f64, position[2] as f64) * CHUNK_SIZE as f64;
 
     let min_height = (get_min_in_noise_map(&terrain_noise, chunk_noise_offset, chunk_lod) as i32)
@@ -73,8 +71,6 @@ pub fn generate_voxels(
             let steepness = terrain_steepness.get(noise_position);
 
             let mut noise_height = terrain_noise.get(noise_position) as f32;
-
-            let grass_color = (grass_color_noise.get(noise_position) * 255.) as u8;
 
             let is_snow = noise_height * chunk_lod.multiplier_f32() > 3500. / VOXEL_SIZE;
             let is_grass_steep = if is_snow {
@@ -160,11 +156,6 @@ pub fn generate_voxels(
                         - min_height.min(noise_height as i32))
                     .max(1) as usize
                         - 1;
-                    let current_color =
-                        match blocks.get_block([x as i32, top_terrain as i32, z as i32]) {
-                            // BlockType::StructureDebug(r, g, b) => (r, g, b),
-                            _ => (0u8, 0u8, 0u8),
-                        };
                     blocks.set_block([x as i32, top_terrain as i32, z as i32], BlockType::Stone);
                 }
                 let mut rand = StdRng::seed_from_u64((structure_value.abs() * 10000.) as u64);

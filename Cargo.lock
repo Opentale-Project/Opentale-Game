@@ -3862,6 +3862,7 @@ dependencies = [
  "fastnoise-lite",
  "fastrand",
  "futures-lite",
+ "itertools 0.14.0",
  "noise",
  "num-traits",
  "rand 0.9.1",

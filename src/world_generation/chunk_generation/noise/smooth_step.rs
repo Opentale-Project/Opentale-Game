@@ -60,7 +60,10 @@ where
     T: NoiseFn<f64, D>,
 {
     fn get(&self, point: [f64; D]) -> f64 {
-        smooth_floor(self.noise.get(point) * self.steps + 0.5, self.smoothness) / self.steps
+        smooth_floor(
+            self.noise.get(point) * self.steps + 0.5, 
+            self.smoothness
+        ) / self.steps
     }
 }
 

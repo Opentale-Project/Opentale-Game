@@ -130,7 +130,13 @@ pub struct ChunkGenerationTask(pub Task<ChunkGenerationResult>, pub Entity);
 pub struct CacheGenerationTask(pub Task<CountryCache>);
 
 #[derive(Component)]
-pub struct ChunkTaskGenerator(pub IVec2, pub ChunkLod, pub IVec2, pub i32, pub Entity);
+pub struct ChunkTaskGenerator(
+    pub IVec2, 
+    pub ChunkLod, 
+    pub IVec2, 
+    pub i32, 
+    pub Entity
+);
 
 #[derive(Component)]
 pub struct Chunk(pub [i32; 3]);
@@ -170,12 +176,16 @@ fn start_chunk_tasks(
         match generation_options.1.get(&country_pos) {
             None => {
                 let arc_generation_options = generation_options.0.clone();
-                commands.spawn(CacheGenerationTask(cache_task_pool.0.spawn(async move {
-                    CountryCache::generate(country_pos, &arc_generation_options)
-                })));
+                commands.spawn(
+                    CacheGenerationTask(cache_task_pool.0.spawn(async move {
+                        CountryCache::generate(
+                            country_pos, 
+                            &arc_generation_options
+                        )
+                    }
+                )));
 
-                generation_options
-                    .1
+                generation_options.1
                     .insert(country_pos, GenerationState::Generating);
             }
             Some(country_cache) => match country_cache {
@@ -202,7 +212,10 @@ fn start_chunk_tasks(
 
                         entity
                             .remove::<ChunkTaskGenerator>()
-                            .insert(ChunkGenerationTask(task, chunk_task_generator.4));
+                            .insert(ChunkGenerationTask(
+                                task, 
+                                chunk_task_generator.4
+                            ));
                     }
                 }
             },
@@ -263,16 +276,24 @@ fn generate_quad_tree_chunk(
 
     if current_lod != ChunkLod::Full {
         for (chunk_loader, transform) in chunk_loaders {
-            let loader_chunk_position = get_chunk_position(transform.translation, current_lod);
+            let loader_chunk_position = get_chunk_position(
+                transform.translation, 
+                current_lod
+            );
             let current_chunk_pos = [
-                owner_chunk_pos[0] * current_lod.inverse_multiplier_i32() + current_lod_pos[0],
-                owner_chunk_pos[1] * current_lod.inverse_multiplier_i32() + current_lod_pos[1],
+                owner_chunk_pos[0] 
+                    * current_lod.inverse_multiplier_i32() 
+                    + current_lod_pos[0],
+                owner_chunk_pos[1] 
+                    * current_lod.inverse_multiplier_i32() 
+                    + current_lod_pos[1],
             ];
             let position_difference = [
                 loader_chunk_position[0] - current_chunk_pos[0],
                 loader_chunk_position[1] - current_chunk_pos[1],
             ];
-            let current_range = chunk_loader.lod_range[MAX_LOD.usize() - current_lod.usize()];
+            let current_range = 
+                chunk_loader.lod_range[MAX_LOD.usize() - current_lod.usize()];
             if position_difference[0].abs() <= current_range
                 && position_difference[1].abs() <= current_range
             {
@@ -360,7 +381,9 @@ pub(crate) fn upgrade_quad_trees(
     generated_chunks: Query<Entity, With<Chunk>>,
 ) {
     for chunk in &chunks {
-        let boxed_tree = voxel_world.get_chunk(chunk.1 .0).expect("Chunk not found!");
+        let boxed_tree = voxel_world
+            .get_chunk(chunk.1.0)
+            .expect("Chunk not found!");
 
         match &**boxed_tree {
             None => {}
@@ -401,17 +424,21 @@ fn upgrade_tree_recursion(
                     let loader_chunk_position =
                         get_chunk_position(transform.translation, current_lod);
                     let current_chunk_pos = [
-                        owner_chunk_pos[0] * current_lod.inverse_multiplier_i32()
+                        owner_chunk_pos[0] 
+                            * current_lod.inverse_multiplier_i32()
                             + current_lod_pos[0],
-                        owner_chunk_pos[1] * current_lod.inverse_multiplier_i32()
+                        owner_chunk_pos[1] 
+                            * current_lod.inverse_multiplier_i32()
                             + current_lod_pos[1],
                     ];
                     let position_difference = [
                         loader_chunk_position[0] - current_chunk_pos[0],
                         loader_chunk_position[1] - current_chunk_pos[1],
                     ];
-                    let current_range =
-                        chunk_loader.lod_range[MAX_LOD.usize() - current_lod.usize()];
+                    let current_range = 
+                        chunk_loader.lod_range[
+                            MAX_LOD.usize() - current_lod.usize()
+                        ];
                     if position_difference[0].abs() <= current_range
                         && position_difference[1].abs() <= current_range
                     {
@@ -425,11 +452,16 @@ fn upgrade_tree_recursion(
             }
 
             let entities = check_entities_for_deletion(
-                [children.clone().into_values().collect(), entities.clone()].concat(),
+                [
+                    children.clone().into_values().collect(), 
+                    entities.clone()
+                ].concat(),
                 commands,
                 generated_chunks,
             );
 
+            // TODO: extract this code into a constructor, 
+            // so we're not just looking at a massive wall of text  
             Node(
                 Box::new(generate_quad_tree_chunk(
                     owner,
@@ -591,7 +623,9 @@ fn check_entities_for_deletion(
     new_entities
 }
 
-fn get_entities_recursive(current_node: &QuadTreeNode<HashMap<i32, Entity>>) -> Vec<Entity> {
+fn get_entities_recursive(
+    current_node: &QuadTreeNode<HashMap<i32, Entity>>
+) -> Vec<Entity> {
     match current_node {
         Data(entities, despawn_children) => [
             entities.clone().into_values().collect(),
@@ -618,77 +652,99 @@ fn set_generated_chunks(
     generation_assets: Res<GenerationAssets>,
 ) {
     for (entity, mut task) in &mut chunks {
-        if let Some(chunk_generation_result) = future::block_on(future::poll_once(&mut task.0)) {
+        if let Some(
+            chunk_generation_result
+        ) = future::block_on(
+            future::poll_once(&mut task.0)
+        ) {
             let tree_depth = <ChunkLod as Into<i32>>::into(MAX_LOD)
                 - <ChunkLod as Into<i32>>::into(chunk_generation_result.lod);
-            match voxel_world.get_chunk(chunk_generation_result.parent_pos.to_array()) {
-                None => {
-                    info!("Owner not found!")
+
+            let Some(tree) = voxel_world.get_chunk(
+                chunk_generation_result.parent_pos.to_array()
+            ) else {
+                info!("Owner not found!");
+                continue;
+            };
+
+            let Some(tree) = tree.as_mut() else {
+                info!("Owner not found");
+                continue;
+            };
+
+            let Some(node) = tree.get_node(
+                tree_depth,
+                chunk_generation_result.lod_position.to_array()
+            ) else {
+                info!(
+                    "Map not found! depth: {0}, pos: [{1}, {2}]",
+                    <ChunkLod as Into<i32>>::into(MAX_LOD)
+                        - <ChunkLod as Into<i32>>::into(
+                            chunk_generation_result.lod
+                        ),
+                    chunk_generation_result.lod_position[0],
+                    chunk_generation_result.lod_position[1]
+                );
+                continue;
+            };
+
+            if chunk_generation_result.generate_above 
+                && let Data(map, _) = node 
+            {
+                let new_height = chunk_generation_result.chunk_height + 1;
+
+                let child = commands.spawn((
+                    ChunkTaskGenerator(
+                        chunk_generation_result.parent_pos, 
+                        chunk_generation_result.lod, 
+                        chunk_generation_result.lod_position, 
+                        new_height, 
+                        task.1
+                    ),
+                    Name::new(
+                        format!(
+                            "SubChunk[lod: {:?}, pos: {:?}, height: {}]", 
+                            chunk_generation_result.lod, 
+                            chunk_generation_result.lod_position,
+                            new_height
+                        )
+                    ),
+                    Visibility::Visible
+                )).id();
+
+                commands.entity(task.1).add_child(child);
+
+                map.insert(new_height, child);
+            } else if let Data(_, despawn_entities) = node {
+                for despawn_entity in despawn_entities.clone() {
+                    if let Ok(mut entity) =
+                        commands.get_entity(despawn_entity.clone())
+                    {
+                        entity.despawn();
+                    }
                 }
-                Some(tree) => match tree.as_mut() {
-                    None => {
-                        info!("Owner not found!")
-                    }
-                    Some(ref mut tree) => {
-                        match tree
-                            .get_node(tree_depth, chunk_generation_result.lod_position.to_array())
-                        {
-                            None => {
-                                info!(
-                                    "Map not found! depth: {0}, pos: [{1}, {2}]",
-                                    <ChunkLod as Into<i32>>::into(MAX_LOD)
-                                        - <ChunkLod as Into<i32>>::into(
-                                            chunk_generation_result.lod
-                                        ),
-                                    chunk_generation_result.lod_position[0],
-                                    chunk_generation_result.lod_position[1]
-                                );
-                            }
-                            Some(node) => {
-                                if chunk_generation_result.generate_above {
-                                    if let Data(map, _) = node {
-                                        let new_height = chunk_generation_result.chunk_height + 1;
 
-                                        let child = commands.spawn((
-                                                ChunkTaskGenerator(chunk_generation_result.parent_pos, chunk_generation_result.lod, chunk_generation_result.lod_position, new_height, task.1),
-                                                Name::new(format!("SubChunk[lod: {0:?}, pos: {1:?}, height: {new_height}]", chunk_generation_result.lod, chunk_generation_result.lod_position)),
-                                                Visibility::Visible
-                                            )).id();
-
-                                        commands.entity(task.1).add_child(child);
-
-                                        map.insert(new_height, child);
-                                    }
-                                } else {
-                                    if let Data(_, despawn_entities) = node {
-                                        for despawn_entity in despawn_entities.clone() {
-                                            if let Ok(mut entity) =
-                                                commands.get_entity(despawn_entity.clone())
-                                            {
-                                                entity.despawn();
-                                            }
-                                        }
-
-                                        despawn_entities.clear();
-                                    }
-
-                                    tree.add_to_parent(
-                                        tree_depth,
-                                        chunk_generation_result.lod_position.to_array(),
-                                        &mut commands,
-                                    );
-                                }
-                            }
-                        }
-                    }
-                },
+                despawn_entities.clear();
+            } else {
+                tree.add_to_parent(
+                    tree_depth,
+                    chunk_generation_result.lod_position.to_array(),
+                    &mut commands,
+                );
             }
 
-            if let Ok(mut current_entity) = commands.get_entity(entity) {
-                if let Some(chunk_task_data) = chunk_generation_result.task_data {
-                    let triangle_count = chunk_task_data.mesh.indices().unwrap().len() / 3;
-
-                    chunk_triangles.0[chunk_generation_result.lod.usize() - 1] +=
+            if let Ok(
+                mut current_entity
+            ) = commands.get_entity(entity) {
+                if let Some(
+                    chunk_task_data
+                ) = chunk_generation_result.task_data {
+                    let triangle_count = chunk_task_data.mesh
+                        .indices()
+                        .unwrap()
+                        .len() / 3;
+                    let result_lod = chunk_generation_result.lod.usize();
+                    chunk_triangles.0[result_lod - 1] +=
                         triangle_count as u64;
 
                     current_entity.remove::<ChunkGenerationTask>().insert((
@@ -726,7 +782,9 @@ fn set_generated_caches(
     mut generation_options: ResMut<GenerationOptionsResource>,
 ) {
     for (entity, mut task) in &mut chunks {
-        if let Some(chunk_task_data_option) = future::block_on(future::poll_once(&mut task.0)) {
+        if let Some(
+            chunk_task_data_option
+        ) = future::block_on(future::poll_once(&mut task.0)) {
             generation_options.1.insert(
                 chunk_task_data_option.country_pos,
                 GenerationState::Some(chunk_task_data_option),
@@ -752,220 +810,251 @@ fn draw_path_gizmos(
         return;
     }
 
-    let terrain_noise = Add::new(get_terrain_noise(&generation_options.0), Constant::new(5.));
+    let terrain_noise = Add::new(
+        get_terrain_noise(&generation_options.0), 
+        Constant::new(5.)
+    );
 
     for player in &players {
-        let player_country_pos = (player.translation / VOXEL_SIZE / COUNTRY_SIZE as f32)
-            .floor()
-            .as_ivec3();
-        let player_voxel_pos = (player.translation / VOXEL_SIZE).as_ivec3().xz();
-        match generation_options.1.get(&player_country_pos.xz()) {
-            None => {}
-            Some(country_cache) => match country_cache {
-                GenerationState::Some(country_cache) => {
-                    for path in country_cache
-                        .this_path_cache
-                        .paths
-                        .iter()
-                        .chain(&country_cache.bottom_path_cache.paths)
-                        .chain(&country_cache.left_path_cache.paths)
-                    {
-                        if path.is_in_box(
-                            player_voxel_pos,
-                            IVec2::ONE * debug_resource.path_show_range,
-                        ) {
-                            for path_line in &path.lines {
-                                if path_line.is_in_box(
-                                    player_voxel_pos,
-                                    IVec2::ONE * debug_resource.path_show_range,
-                                ) {
-                                    let is_in_path =
-                                        path_line.is_in_box(player_voxel_pos, IVec2::ONE * 5);
-                                    let color = if is_in_path {
-                                        Color::srgb(229. / 255., 171. / 255., 0.)
-                                    } else {
-                                        Color::srgb(0., 200. / 255., 0.)
-                                    };
-                                    gizmos.line(
-                                        Vec3::from((
-                                            path_line.start.as_vec2(),
-                                            terrain_noise.get(path_line.start.as_dvec2().to_array())
-                                                as f32,
-                                        ))
-                                        .xzy()
-                                            * VOXEL_SIZE,
-                                        Vec3::from((
-                                            path_line.end.as_vec2(),
-                                            terrain_noise.get(path_line.end.as_dvec2().to_array())
-                                                as f32,
-                                        ))
-                                        .xzy()
-                                            * VOXEL_SIZE,
-                                        color,
-                                    );
-                                    if is_in_path {
-                                        gizmos.circle(
-                                            Isometry3d {
-                                                rotation: Quat::from_rotation_arc(Vec3::Z, Vec3::Y),
-                                                translation: Vec3A::from((
-                                                    path_line.spline_one,
-                                                    terrain_noise.get(
-                                                        path_line.spline_one.as_dvec2().to_array(),
-                                                    )
-                                                        as f32,
-                                                ))
-                                                .xzy()
-                                                    * VOXEL_SIZE,
-                                            },
-                                            debug_resource.path_circle_radius,
-                                            Color::srgb(0., 200. / 255., 0.),
-                                        );
-                                        gizmos.circle(
-                                            Isometry3d {
-                                                rotation: Quat::from_rotation_arc(Vec3::Z, Vec3::Y),
-                                                translation: Vec3A::from((
-                                                    path_line.spline_two,
-                                                    terrain_noise.get(
-                                                        path_line.spline_two.as_dvec2().to_array(),
-                                                    )
-                                                        as f32,
-                                                ))
-                                                .xzy()
-                                                    * VOXEL_SIZE,
-                                            },
-                                            debug_resource.path_circle_radius,
-                                            Color::srgb(200. / 255., 0., 0.),
-                                        );
-                                        gizmos.circle(
-                                            Isometry3d {
-                                                rotation: Quat::from_rotation_arc(Vec3::Z, Vec3::Y),
-                                                translation: Vec3A::from((
-                                                    path_line.start.as_vec2(),
-                                                    terrain_noise
-                                                        .get(path_line.start.as_dvec2().to_array())
-                                                        as f32,
-                                                ))
-                                                .xzy()
-                                                    * VOXEL_SIZE,
-                                            },
-                                            debug_resource.path_circle_radius,
-                                            Color::srgb(0., 200. / 255., 0.),
-                                        );
-                                        gizmos.circle(
-                                            Isometry3d {
-                                                rotation: Quat::from_rotation_arc(Vec3::Z, Vec3::Y),
-                                                translation: Vec3A::from((
-                                                    path_line.end.as_vec2(),
-                                                    terrain_noise
-                                                        .get(path_line.end.as_dvec2().to_array())
-                                                        as f32,
-                                                ))
-                                                .xzy()
-                                                    * VOXEL_SIZE,
-                                            },
-                                            debug_resource.path_circle_radius,
-                                            Color::srgb(200. / 255., 0., 0.),
-                                        );
+        let player_country_pos = (
+            player.translation 
+            / VOXEL_SIZE 
+            / COUNTRY_SIZE as f32
+        ).floor().as_ivec3();
 
-                                        for i in 1..path_line.sample_points.len() {
-                                            let start = path_line.sample_points[i - 1];
-                                            let end = path_line.sample_points[i];
-                                            gizmos.line(
-                                                Vec3::from((
-                                                    start.as_vec2(),
-                                                    terrain_noise.get(start.as_dvec2().to_array())
-                                                        as f32,
-                                                ))
-                                                .xzy()
-                                                    * VOXEL_SIZE,
-                                                Vec3::from((
-                                                    end.as_vec2(),
-                                                    terrain_noise.get(end.as_dvec2().to_array())
-                                                        as f32,
-                                                ))
-                                                .xzy()
-                                                    * VOXEL_SIZE,
-                                                Color::srgb(200. / 255., 0., 0.),
-                                            );
-                                        }
+        let player_voxel_pos = (
+            player.translation 
+            / VOXEL_SIZE
+        ).as_ivec3().xz();
 
-                                        if let Some((player_pos_on_path, _)) = path_line
-                                            .closest_point_on_path(player_voxel_pos, IVec2::ONE * 5)
-                                        {
-                                            gizmos.circle(
-                                                Isometry3d {
-                                                    rotation: Quat::from_rotation_arc(
-                                                        Vec3::Z,
-                                                        Vec3::Y,
-                                                    ),
-                                                    translation: Vec3A::from((
-                                                        player_pos_on_path,
-                                                        terrain_noise.get(
-                                                            player_pos_on_path
-                                                                .as_dvec2()
-                                                                .to_array(),
-                                                        )
-                                                            as f32,
-                                                    ))
-                                                    .xzy()
-                                                        * VOXEL_SIZE,
-                                                },
-                                                debug_resource.path_circle_radius,
-                                                Color::srgb(0., 0., 200. / 255.),
-                                            );
-                                            gizmos.circle(
-                                                Isometry3d {
-                                                    rotation: Quat::from_rotation_arc(
-                                                        Vec3::Z,
-                                                        Vec3::Y,
-                                                    ),
-                                                    translation: Vec3A::from((
-                                                        player_pos_on_path.as_ivec2().as_vec2()
-                                                            + VOXEL_SIZE,
-                                                        terrain_noise.get(
-                                                            player_pos_on_path
-                                                                .as_dvec2()
-                                                                .to_array(),
-                                                        )
-                                                            as f32,
-                                                    ))
-                                                    .xzy()
-                                                        * VOXEL_SIZE,
-                                                },
-                                                debug_resource.path_circle_radius,
-                                                Color::srgb(0., 200. / 255., 200. / 255.),
-                                            );
+        let Some(
+            country_cache
+        ) = generation_options.1.get(&player_country_pos.xz()) else {
+            continue;
+        };
 
-                                            gizmos.circle(
-                                                Isometry3d {
-                                                    rotation: Quat::from_rotation_arc(
-                                                        Vec3::Z,
-                                                        Vec3::Y,
-                                                    ),
-                                                    translation: Vec3A::from((
-                                                        player_voxel_pos.as_vec2() + VOXEL_SIZE,
-                                                        terrain_noise.get(
-                                                            player_pos_on_path
-                                                                .as_dvec2()
-                                                                .to_array(),
-                                                        )
-                                                            as f32,
-                                                    ))
-                                                    .xzy()
-                                                        * VOXEL_SIZE,
-                                                },
-                                                debug_resource.path_circle_radius,
-                                                Color::srgb(0., 100. / 255., 200. / 255.),
-                                            );
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+        let GenerationState::Some(country_cache) = country_cache else {
+            continue;
+        }; 
+        for path in country_cache
+            .this_path_cache
+            .paths
+            .iter()
+            .chain(&country_cache.bottom_path_cache.paths)
+            .chain(&country_cache.left_path_cache.paths)
+        {
+            if !path.is_in_box(
+                player_voxel_pos,
+                IVec2::ONE * debug_resource.path_show_range,
+            ) {
+                continue;
+            }
+                
+            for path_line in &path.lines {
+                if !path_line.is_in_box(
+                    player_voxel_pos,
+                    IVec2::ONE * debug_resource.path_show_range,
+                ) {
+                    continue;
                 }
-                _ => {}
-            },
+
+                let is_in_path = path_line.is_in_box(
+                    player_voxel_pos, 
+                    IVec2::ONE * 5
+                );
+
+                let color = if is_in_path {
+                    Color::srgb(229. / 255., 171. / 255., 0.)
+                } else {
+                    Color::srgb(0., 200. / 255., 0.)
+                };
+                
+                gizmos.line(
+                    Vec3::from((
+                        path_line.start.as_vec2(),
+                        terrain_noise.get(
+                            path_line.start.as_dvec2().to_array()
+                        ) as f32,
+                    )).xzy() * VOXEL_SIZE,
+                    Vec3::from((
+                        path_line.end.as_vec2(),
+                        terrain_noise.get(
+                            path_line.end.as_dvec2().to_array()
+                        ) as f32,
+                    )).xzy() * VOXEL_SIZE,
+                    color,
+                );
+                if !is_in_path {
+                    continue;
+                }
+                gizmos.circle(
+                    Isometry3d {
+                        rotation: Quat::from_rotation_arc(
+                            Vec3::Z, 
+                            Vec3::Y
+                        ),
+                        translation: Vec3A::from((
+                            path_line.spline_one,
+                            terrain_noise.get(
+                                path_line
+                                    .spline_one
+                                    .as_dvec2()
+                                    .to_array(),
+                            ) as f32,
+                        )).xzy() * VOXEL_SIZE,
+                    },
+                    debug_resource.path_circle_radius,
+                    Color::srgb(0., 200. / 255., 0.),
+                );
+                gizmos.circle(
+                    Isometry3d {
+                        rotation: Quat::from_rotation_arc(
+                            Vec3::Z, 
+                            Vec3::Y
+                        ),
+                        translation: Vec3A::from((
+                            path_line.spline_two,
+                            terrain_noise.get(
+                                path_line
+                                    .spline_two
+                                    .as_dvec2()
+                                    .to_array(),
+                            )as f32,
+                        )).xzy() * VOXEL_SIZE,
+                    },
+                    debug_resource.path_circle_radius,
+                    Color::srgb(200. / 255., 0., 0.),
+                );
+                gizmos.circle(
+                    Isometry3d {
+                        rotation: Quat::from_rotation_arc(
+                            Vec3::Z, 
+                            Vec3::Y
+                        ),
+                        translation: Vec3A::from((
+                            path_line.start.as_vec2(),
+                            terrain_noise.get(
+                                path_line
+                                    .start
+                                    .as_dvec2()
+                                    .to_array()
+                            )as f32,
+                        )).xzy() * VOXEL_SIZE,
+                    },
+                    debug_resource.path_circle_radius,
+                    Color::srgb(0., 200. / 255., 0.),
+                );
+                gizmos.circle(
+                    Isometry3d {
+                        rotation: Quat::from_rotation_arc(
+                            Vec3::Z, 
+                            Vec3::Y
+                        ),
+                        translation: Vec3A::from((
+                            path_line.end.as_vec2(),
+                            terrain_noise.get(
+                                path_line
+                                    .end
+                                    .as_dvec2()
+                                    .to_array()
+                            ) as f32,
+                        )).xzy() * VOXEL_SIZE,
+                    },
+                    debug_resource.path_circle_radius,
+                    Color::srgb(200. / 255., 0., 0.),
+                );
+
+                for i in 1..path_line.sample_points.len() {
+                    let start = path_line.sample_points[i - 1];
+                    let end = path_line.sample_points[i];
+                    gizmos.line(
+                        Vec3::from((
+                            start.as_vec2(),
+                            terrain_noise.get(
+                                start
+                                    .as_dvec2()
+                                    .to_array()
+                            ) as f32,
+                        )).xzy() * VOXEL_SIZE,
+                        Vec3::from((
+                            end.as_vec2(),
+                            terrain_noise.get(
+                                end
+                                    .as_dvec2()
+                                    .to_array()
+                            ) as f32,
+                        )).xzy() * VOXEL_SIZE,
+                        Color::srgb(200. / 255., 0., 0.),
+                    );
+                }
+
+                let Some(
+                    (player_pos_on_path, _)
+                ) = path_line.closest_point_on_path(
+                    player_voxel_pos, 
+                    IVec2::ONE * 5
+                ) else {
+                    continue;
+                };
+
+                gizmos.circle(
+                    Isometry3d {
+                        rotation: Quat::from_rotation_arc(
+                            Vec3::Z,
+                            Vec3::Y,
+                        ),
+                        translation: Vec3A::from((
+                            player_pos_on_path,
+                            terrain_noise.get(
+                                player_pos_on_path
+                                    .as_dvec2()
+                                    .to_array(),
+                            ) as f32,
+                        )).xzy() * VOXEL_SIZE,
+                    },
+                    debug_resource.path_circle_radius,
+                    Color::srgb(0., 0., 200. / 255.),
+                );
+                gizmos.circle(
+                    Isometry3d {
+                        rotation: Quat::from_rotation_arc(
+                            Vec3::Z,
+                            Vec3::Y,
+                        ),
+                        translation: Vec3A::from((
+                            player_pos_on_path.as_ivec2().as_vec2()
+                                + VOXEL_SIZE,
+                            terrain_noise.get(
+                                player_pos_on_path
+                                    .as_dvec2()
+                                    .to_array(),
+                            ) as f32,
+                        )).xzy() * VOXEL_SIZE,
+                    },
+                    debug_resource.path_circle_radius,
+                    Color::srgb(0., 200. / 255., 200. / 255.),
+                );
+
+                gizmos.circle(
+                    Isometry3d {
+                        rotation: Quat::from_rotation_arc(
+                            Vec3::Z,
+                            Vec3::Y,
+                        ),
+                        translation: Vec3A::from((
+                            player_voxel_pos.as_vec2() 
+                                + VOXEL_SIZE,
+                            terrain_noise.get(
+                                player_pos_on_path
+                                    .as_dvec2()
+                                    .to_array(),
+                            )as f32,
+                        )).xzy() * VOXEL_SIZE,
+                    },
+                    debug_resource.path_circle_radius,
+                    Color::srgb(0., 100. / 255., 200. / 255.),
+                );
+            }
         }
     }
 }

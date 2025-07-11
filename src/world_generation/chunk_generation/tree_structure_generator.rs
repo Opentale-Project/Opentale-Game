@@ -3,7 +3,13 @@ use std::rc::Rc;
 use bevy::math::IVec2;
 use rand::{rngs::StdRng, SeedableRng};
 
-use crate::world_generation::{chunk_generation::{structure_generator::{StructureGenerator, VoxelStructureMetadata}, BlockType, VOXEL_SIZE}, voxel_world::ChunkLod};
+use crate::world_generation::{
+    chunk_generation::{
+        structure_generator::{StructureGenerator, VoxelStructureMetadata},
+        BlockType, VOXEL_SIZE,
+    },
+    voxel_world::ChunkLod,
+};
 
 pub trait TreeStructureGenerator {
     fn adjust_metadata(metadata: &mut VoxelStructureMetadata) {

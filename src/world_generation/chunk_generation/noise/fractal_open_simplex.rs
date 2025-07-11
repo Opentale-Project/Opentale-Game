@@ -125,6 +125,12 @@ pub fn noise(
     amplitude: f64,
     hasher: &PermutationTable,
 ) -> (f64, [f64; 2]) {
-    let result = simplex_2d(Vector2::new(x * frequency, z * frequency), hasher);
+    let result = simplex_2d(
+        Vector2::new(
+            x * frequency, 
+            z * frequency
+        ), 
+        hasher
+    );
     ((result.0 + 1.) * 0.5 * amplitude, result.1)
 }
