@@ -5,8 +5,12 @@ use rand::{rngs::StdRng, SeedableRng};
 
 use crate::world_generation::{
     chunk_generation::{
-        structure_generator::{StructureGenerator, VoxelStructureMetadata},
-        BlockType, VOXEL_SIZE,
+        BlockType, 
+        structures::structure_generator::{
+            StructureGenerator, 
+            VoxelStructureMetadata
+        },
+        VOXEL_SIZE,
     },
     voxel_world::ChunkLod,
 };

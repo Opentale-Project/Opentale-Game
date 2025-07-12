@@ -1,7 +1,6 @@
 pub mod array_texture;
 pub mod chunk_generation;
 pub mod chunk_loading;
-pub mod foliage_generation;
 pub mod generation_assets;
 pub mod generation_options;
 pub mod texture_loading;

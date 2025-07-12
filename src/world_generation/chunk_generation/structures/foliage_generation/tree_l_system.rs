@@ -5,8 +5,11 @@ use crate::{
         vec_utils::vec_round_to_int,
     },
     world_generation::{
-        chunk_generation::{BlockType, VOXEL_SIZE},
-        foliage_generation::entry_range::EntryRange,
+        chunk_generation::{
+            BlockType, 
+            structures::foliage_generation::entry_range::EntryRange,
+            VOXEL_SIZE
+        },
     },
 };
 use bevy::math::Vec3;

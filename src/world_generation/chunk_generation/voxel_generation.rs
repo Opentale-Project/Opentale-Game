@@ -1,5 +1,5 @@
 use crate::utils::div_floor::div_floor;
-use crate::world_generation::chunk_generation::structure_generator::{
+use crate::world_generation::chunk_generation::structures::structure_generator::{
     StructureGenerator, StructureGeneratorCache,
 };
 use crate::world_generation::chunk_generation::{BlockType, CHUNK_SIZE, VOXEL_SIZE};

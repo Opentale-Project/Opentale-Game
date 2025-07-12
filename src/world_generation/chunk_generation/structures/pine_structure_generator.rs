@@ -2,10 +2,14 @@ use rand::rngs::StdRng;
 
 use crate::world_generation::{
     chunk_generation::{
-        structure_generator::VoxelStructureMetadata,
-        tree_structure_generator::TreeStructureGenerator, BlockType, VOXEL_SIZE,
+        BlockType, 
+        structures::{
+            foliage_generation::{pine_l_system::PineLSystem, tree_l_system::LSystem},
+            structure_generator::VoxelStructureMetadata,
+            tree_structure_generator::TreeStructureGenerator,
+        },
+        VOXEL_SIZE,
     },
-    foliage_generation::{pine_l_system::PineLSystem, tree_l_system::LSystem},
 };
 
 pub struct PineStructureGenerator {

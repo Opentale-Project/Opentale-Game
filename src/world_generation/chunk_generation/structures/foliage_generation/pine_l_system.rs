@@ -6,10 +6,13 @@ use rand::{rngs::StdRng, Rng};
 use crate::{
     utils::rotation::{rotate_around, RotationDirection},
     world_generation::{
-        chunk_generation::{BlockType, VOXEL_SIZE},
-        foliage_generation::{
-            entry_range::EntryRange,
-            tree_l_system::{LSystem, LSystemEntry},
+        chunk_generation::{
+            BlockType, 
+            structures::foliage_generation::{
+                entry_range::EntryRange,
+                tree_l_system::{LSystem, LSystemEntry},
+            },
+            VOXEL_SIZE
         },
     },
 };

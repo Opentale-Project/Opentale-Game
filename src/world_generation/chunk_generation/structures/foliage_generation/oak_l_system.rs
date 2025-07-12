@@ -4,8 +4,11 @@ use bevy::math::Vec3;
 use rand::{rngs::StdRng, Rng};
 
 use crate::world_generation::{
-    chunk_generation::{BlockType, VOXEL_SIZE},
-    foliage_generation::tree_l_system::{LSystem, LSystemEntry},
+    chunk_generation::{
+        BlockType, 
+        structures::foliage_generation::tree_l_system::{LSystem, LSystemEntry},
+        VOXEL_SIZE
+    },
 };
 
 pub struct OakLSystem;

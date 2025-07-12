@@ -1,14 +1,16 @@
 use crate::world_generation::{
     chunk_generation::{
-        oak_structure_generator::OakStructureGenerator,
-        structure_generator::{
-            FixedStructureGenerator, 
-            StructureGenerator, 
-            VoxelStructureMetadata,
-        },
-        tree_structure_generator::TreeStructureGenerator,
-        BlockType
-    },
+        BlockType,
+        structures::{
+            oak_structure_generator::OakStructureGenerator,
+            structure_generator::{
+                FixedStructureGenerator, 
+                StructureGenerator, 
+                VoxelStructureMetadata,
+            },
+            tree_structure_generator::TreeStructureGenerator,
+        }
+},
     chunk_loading::country_cache::{
         CountryCache, 
         PathCache, 
