@@ -27,10 +27,8 @@ fn render_main_menu(
     mut menu_state: ResMut<NextState<MainMenuState>>,
     mut gen_options: ResMut<GenerationOptionsResource>,
     mut contexts: EguiContexts,
-) {
-    let ctx = contexts.ctx_mut();
-
-    egui::CentralPanel::default().show(ctx, |ui| {
+) -> Result {
+    egui::CentralPanel::default().show(contexts.ctx_mut()?, |ui| {
         ui.vertical_centered(|ui| {
             ui.heading("SpellHaven");
 
@@ -47,4 +45,6 @@ fn render_main_menu(
             }
         });
     });
+
+    Ok(())
 }

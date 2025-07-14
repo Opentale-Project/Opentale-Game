@@ -8,16 +8,13 @@ use crate::world_generation::generation_options::GenerationOptions;
 use crate::world_generation::voxel_world::ChunkLod;
 use bevy::math::{DVec2, IVec2};
 use bevy::prelude::Vec2;
-use noise::{Add, Constant, Max, Min, MultiFractal, Multiply, NoiseFn, ScalePoint, Simplex};
+use noise::NoiseFn;
 use rand::prelude::StdRng;
 use rand::{Rng, SeedableRng};
 use std::usize;
 
 use super::noise::full_cache::FullCache;
-use super::noise::gradient_fractal_noise::GFT;
 use super::noise::lod_height_adjuster::LodHeightAdjuster;
-use super::noise::shift_n_scale::ShiftNScale;
-use super::noise::smooth_step::SmoothStep;
 use super::noise::steepness::Steepness;
 use super::voxel_types::VoxelData;
 
@@ -279,72 +276,10 @@ pub fn generate_voxels(
     (blocks, min_height, generate_more)
 }
 
-pub fn get_grass_color_noise(generation_options: &GenerationOptions) -> impl NoiseFn<f64, 2> {
-    let mut rng = StdRng::seed_from_u64(generation_options.seed + 3);
-    SmoothStep::new(Min::new(
-        Multiply::new(
-            Add::new(
-                ScalePoint::new(Simplex::new(rng.random())).set_scale(0.5f64.powi(14)),
-                Constant::new(1.),
-            ),
-            Constant::new(0.5),
-        ),
-        Multiply::new(
-            Add::new(
-                ScalePoint::new(Simplex::new(rng.random())).set_scale(0.5f64.powi(14)),
-                Constant::new(1.),
-            ),
-            Constant::new(0.5),
-        ),
-    ))
-    .set_steps(6.)
-    .set_smoothness(0.5)
-}
-
-pub fn get_mountain_biome_noise(generation_options: &GenerationOptions) -> impl NoiseFn<f64, 2> {
-    let mut rng = StdRng::seed_from_u64(generation_options.seed + 2);
-    Multiply::new(
-        SmoothStep::new(Multiply::new(
-            Add::new(
-                ScalePoint::new(Simplex::new(rng.random())).set_scale(0.5f64.powi(15)),
-                Constant::new(1.),
-            ),
-            Constant::new(0.5),
-        ))
-        .set_steps(4.)
-        .set_smoothness(0.5),
-        GFT::new_with_source(Max::new(
-            ShiftNScale::<_, 2, 1>::new(Simplex::new(rng.random())),
-            Constant::new(0.),
-        ))
-        .set_frequency(0.5f64.powi(13))
-        .set_amplitude(3750.)
-        .set_octaves(11)
-        .set_gradient(1.),
-    )
-}
-
 pub fn get_terrain_noise(generation_options: &GenerationOptions) -> impl NoiseFn<f64, 2> {
-    let mut rng = StdRng::seed_from_u64(generation_options.seed + 1);
-
-    Add::new(
-        Multiply::new(
-            ScalePoint::new(Add::new(
-                get_mountain_biome_noise(generation_options),
-                GFT::new_with_source(Max::new(
-                    ShiftNScale::<_, 2, 1>::new(Simplex::new(rng.random())),
-                    Constant::new(0.),
-                ))
-                .set_frequency(0.5f64.powi(13))
-                .set_amplitude(500.)
-                .set_octaves(11)
-                .set_gradient(1.),
-            ))
-            .set_scale(VOXEL_SIZE as f64),
-            Constant::new(1. / VOXEL_SIZE as f64),
-        ),
-        Constant::new(-1.),
-    )
+    generation_options
+        .terrain_noise
+        .get_noise_fn(&mut StdRng::seed_from_u64(generation_options.seed + 1))
 }
 
 pub fn get_noise_map<const SIZE: usize, T: From<i32>, F: NoiseFn<T, 2>>(
