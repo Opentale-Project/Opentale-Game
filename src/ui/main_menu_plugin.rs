@@ -1,7 +1,10 @@
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 use bevy::prelude::*;
-use bevy_inspector_egui::{bevy_egui::EguiContexts, egui};
+use bevy_inspector_egui::{
+    bevy_egui::{EguiContexts, EguiPrimaryContextPass},
+    egui,
+};
 
 use crate::{
     ui::{main_menu_data::MainMenuData, main_menu_state::MainMenuState},
@@ -15,10 +18,25 @@ impl Plugin for MainMenuPlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<MainMenuState>()
             .init_resource::<MainMenuData>()
+            .add_systems(OnEnter(MainMenuState::Shown), add_menu_cam)
+            .add_systems(OnEnter(MainMenuState::Hidden), remove_menu_cam)
             .add_systems(
-                Update,
+                EguiPrimaryContextPass,
                 render_main_menu.run_if(in_state(MainMenuState::Shown)),
             );
+    }
+}
+
+#[derive(Component)]
+struct MenuCamera;
+
+fn add_menu_cam(mut commands: Commands) {
+    commands.spawn((Camera2d, MenuCamera));
+}
+
+fn remove_menu_cam(mut commands: Commands, cameras: Query<Entity, With<MenuCamera>>) {
+    for camera in cameras {
+        commands.entity(camera).despawn();
     }
 }
 
