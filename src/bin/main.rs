@@ -1,5 +1,5 @@
-use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::pbr::ExtendedMaterial;
+use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::prelude::*;
 use bevy::window::PresentMode;
 use bevy_atmosphere::prelude::AtmospherePlugin;
@@ -11,8 +11,8 @@ use opentale::animation::animation_plugin::OpentaleAnimationPlugin;
 use opentale::debug_tools::debug_plugin::OpentaleDebugPlugin;
 use opentale::player::player_plugin::PlayerPlugin;
 use opentale::ui::game_ui_plugin::GameUiPlugin;
-use opentale::world_generation::array_texture::ArrayTextureMaterial;
 use opentale::world_generation::WorldGenerationPlugin;
+use opentale::world_generation::array_texture::ArrayTextureMaterial;
 use std::f32::consts::PI;
 
 fn main() {
@@ -36,9 +36,7 @@ fn main() {
             PlayerPlugin,
             WireframePlugin { ..default() },
             OpentaleAnimationPlugin,
-            EguiPlugin {
-                enable_multipass_for_primary_context: false,
-            },
+            EguiPlugin::default(),
             WorldInspectorPlugin::new(),
             GameUiPlugin,
             OpentaleDebugPlugin,

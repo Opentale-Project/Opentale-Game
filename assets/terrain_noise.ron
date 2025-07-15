@@ -1,0 +1,117 @@
+(
+    noise_types: [
+        Simplex,
+        ScalePoint(
+            noise_index: 0,
+            scale: 0.000030517578125,
+        ),
+        Constant(
+            value: 1.0,
+        ),
+        Add(
+            a_index: 1,
+            b_index: 2,
+        ),
+        Constant(
+            value: 0.5,
+        ),
+        Multiply(
+            a_index: 3,
+            b_index: 4,
+        ),
+        SmoothStep(
+            noise_index: 5,
+            steps: 4.0,
+            smoothness: 0.5,
+        ),
+        Simplex,
+        Constant(
+            value: 1.0,
+        ),
+        Add(
+            a_index: 7,
+            b_index: 8,
+        ),
+        Constant(
+            value: 0.5,
+        ),
+        Multiply(
+            a_index: 9,
+            b_index: 10,
+        ),
+        Constant(
+            value: 0.0,
+        ),
+        Max(
+            a_index: 11,
+            b_index: 12,
+        ),
+        GFT(
+            noise_index: 13,
+            octaves: 11,
+            frequency: 0.0001220703125,
+            lacunarity: 2.0,
+            persistence: 0.5,
+            gradient: 1.0,
+            amplitude: 3750.0,
+        ),
+        Multiply(
+            a_index: 6,
+            b_index: 14,
+        ),
+        Simplex,
+        Constant(
+            value: 1.0,
+        ),
+        Add(
+            a_index: 16,
+            b_index: 17,
+        ),
+        Constant(
+            value: 0.5,
+        ),
+        Multiply(
+            a_index: 18,
+            b_index: 19,
+        ),
+        Constant(
+            value: 0.0,
+        ),
+        Max(
+            a_index: 20,
+            b_index: 21,
+        ),
+        GFT(
+            noise_index: 22,
+            octaves: 11,
+            frequency: 0.0001220703125,
+            lacunarity: 2.0,
+            persistence: 0.5,
+            gradient: 1.0,
+            amplitude: 500.0,
+        ),
+        Add(
+            a_index: 15,
+            b_index: 23,
+        ),
+        ScalePoint(
+            noise_index: 24,
+            scale: 1.0,
+        ),
+        Constant(
+            value: 1.0,
+        ),
+        Multiply(
+            a_index: 25,
+            b_index: 26,
+        ),
+        Constant(
+            value: -1.0,
+        ),
+        Add(
+            a_index: 27,
+            b_index: 28,
+        ),
+    ],
+    start_index: 29,
+)

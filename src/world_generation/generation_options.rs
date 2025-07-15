@@ -1,12 +1,11 @@
 use crate::world_generation::{
     chunk_generation::{
         BlockType,
+        noise::terrain_noise::{TERRAIN_NOISE_FILE_PATH, TerrainNoise},
         structures::{
             oak_structure_generator::OakStructureGenerator,
             structure_generator::{
-                FixedStructureGenerator, 
-                StructureGenerator, 
-                VoxelStructureMetadata,
+                FixedStructureGenerator, StructureGenerator, VoxelStructureMetadata,
             },
             tree_structure_generator::TreeStructureGenerator,
         }
@@ -21,11 +20,11 @@ use bevy::prelude::{IVec2, Resource};
 use fastnoise_lite::FastNoiseLite;
 use rand::prelude::StdRng;
 use rand::{Rng, SeedableRng};
-use std::collections::HashMap;
 use std::hash::Hash;
 use std::ops::Deref;
 use std::sync::{Arc, RwLock};
-use vox_format::{from_file, VoxData};
+use std::{collections::HashMap, fs::File, io::Read};
+use vox_format::{VoxData, from_file};
 
 #[derive(Resource)]
 pub struct GenerationOptionsResource(
@@ -35,18 +34,23 @@ pub struct GenerationOptionsResource(
 
 impl GenerationOptionsResource {
     pub fn from_seed(seed: u64) -> Self {
-        let tree_house = vox_data_to_structure_data(
-            &from_file("assets/tree_house.vox").unwrap()
-        );
-        let box_structure = vox_data_to_structure_data(
-            &from_file("assets/box.vox").unwrap()
-        );
+        let tree_house = vox_data_to_structure_data(&from_file("assets/tree_house.vox").unwrap());
+        let box_structure = vox_data_to_structure_data(&from_file("assets/box.vox").unwrap());
+        let mut terrain_noise_file =
+            File::open(TERRAIN_NOISE_FILE_PATH).expect("Terrain noise config not found!");
+        let mut terrain_noise_text = String::new();
+        terrain_noise_file
+            .read_to_string(&mut terrain_noise_text)
+            .expect("Failed reading terrain config file!");
+        let terrain_noise: TerrainNoise =
+            ron::from_str(&terrain_noise_text).expect("Failed deserializing terrain noise config!");
 
         let mut rng = StdRng::seed_from_u64(seed);
 
         Self {
             0: Arc::new(GenerationOptions {
                 seed,
+                terrain_noise,
                 generate_paths: false,
                 path_cache: GenerationCache::new(),
                 structure_cache: GenerationCache::new(),
@@ -122,13 +126,12 @@ pub enum GenerationState<T> {
 
 pub struct GenerationOptions {
     pub seed: u64,
-    pub structure_generators: Vec<Arc<Box<
-        dyn StructureGenerator + Send + Sync
-    >>>,
+    pub structure_generators: Vec<Arc<Box<dyn StructureGenerator + Send + Sync>>>,
     pub structure_assets: Vec<StructureAsset>,
     pub path_cache: GenerationCache<IVec2, PathCache>,
     pub structure_cache: GenerationCache<IVec2, StructureCache>,
     pub generate_paths: bool,
+    pub terrain_noise: TerrainNoise,
 }
 
 pub trait GenerationCacheItem<K: Copy + Eq + Hash> {
@@ -146,16 +149,8 @@ impl<K: Copy + Eq + Hash, T: GenerationCacheItem<K>> GenerationCache<K, T> {
         }
     }
 
-    pub fn get_cache_entry(
-        &self, 
-        key: K, 
-        generation_options: &GenerationOptions
-    ) -> Arc<T> {
-        self.get_generated_cache_entry(
-            self.get_hash_lock_entry(key), 
-            key, 
-            generation_options
-        )
+    pub fn get_cache_entry(&self, key: K, generation_options: &GenerationOptions) -> Arc<T> {
+        self.get_generated_cache_entry(self.get_hash_lock_entry(key), key, generation_options)
     }
 
     pub fn try_get_entry_no_lock(&self, key: K) -> Option<Arc<T>> {
@@ -224,9 +219,7 @@ pub struct StructureAsset {
 
 fn vox_data_to_blocks(vox_data: &VoxData) -> Vec<Vec<Vec<BlockType>>> {
     let model = vox_data.models.first().unwrap();
-    let mut result: Vec<Vec<Vec<BlockType>>> = Vec::with_capacity(
-        model.size.x as usize
-    );
+    let mut result: Vec<Vec<Vec<BlockType>>> = Vec::with_capacity(model.size.x as usize);
     for x in 0..model.size.x {
         result.push(Vec::with_capacity(model.size.z as usize));
         for y in 0..model.size.z {
@@ -259,9 +252,7 @@ fn vox_data_model_size(vox_data: &VoxData) -> [i32; 3] {
     ]
 }
 
-fn vox_data_to_structure_data(
-    vox_data: &VoxData
-) -> (Arc<Vec<Vec<Vec<BlockType>>>>, [i32; 3]) {
+fn vox_data_to_structure_data(vox_data: &VoxData) -> (Arc<Vec<Vec<Vec<BlockType>>>>, [i32; 3]) {
     (
         Arc::new(vox_data_to_blocks(vox_data)),
         vox_data_model_size(vox_data),

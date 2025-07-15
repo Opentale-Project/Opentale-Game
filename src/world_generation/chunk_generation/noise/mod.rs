@@ -7,3 +7,5 @@ pub mod roughness;
 pub mod shift_n_scale;
 pub mod smooth_step;
 pub mod steepness;
+pub mod terrain_noise;
+pub mod terrain_noise_type;
