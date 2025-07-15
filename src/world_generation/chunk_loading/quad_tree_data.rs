@@ -34,38 +34,26 @@ impl Into<i32> for QuadTreeDistinction {
 }
 
 impl<T> QuadTreeNode<T> {
-    pub fn run_on_data<F>(&self, closure: F)
-    where
-        F: Fn(&T),
-    {
-        match self {
-            QuadTreeNode::Data(data, _) => closure(data),
-            QuadTreeNode::Node {
-                bottom_left, 
-                bottom_right, 
-                top_left, 
-                top_right, 
-                ..
-            } => {
-                bottom_left.run_on_data(&closure);
-                bottom_right.run_on_data(&closure);
-                top_left.run_on_data(&closure);
-                top_right.run_on_data(&closure);
-            }
-        }
-    }
-
-    pub fn add_to_parent(&mut self, depth: i32, position: [i32; 2], commands: &mut Commands) {
+    pub fn add_to_parent(
+        &mut self,
+        depth: i32,
+        position: [i32; 2],
+        commands: &mut Commands,
+    ) {
         let mut further = false;
-        if let Some(Node {child_count: child_progress, chunk_entities: entities, ..}) =
-            self.get_parent_node(depth, position)
+        if let Some(Node {
+            child_count: child_progress,
+            chunk_entities: entities,
+            ..
+        }) = self.get_parent_node(depth, position)
         {
             let mut child_progress_lock = child_progress.lock().unwrap();
             *child_progress_lock += 1;
 
             if *child_progress_lock == 4 {
                 for entity in entities {
-                    if let Ok(mut entity) = commands.get_entity(entity.clone()) {
+                    if let Ok(mut entity) = commands.get_entity(entity.clone())
+                    {
                         entity.despawn();
                     }
                 }
@@ -77,11 +65,19 @@ impl<T> QuadTreeNode<T> {
         }
 
         if further {
-            self.add_to_parent(depth - 1, [position[0] / 2, position[1] / 2], commands);
+            self.add_to_parent(
+                depth - 1,
+                [position[0] / 2, position[1] / 2],
+                commands,
+            );
         }
     }
 
-    pub fn get_parent_node(&mut self, depth: i32, position: [i32; 2]) -> Option<&QuadTreeNode<T>> {
+    pub fn get_parent_node(
+        &mut self,
+        depth: i32,
+        position: [i32; 2],
+    ) -> Option<&QuadTreeNode<T>> {
         if depth <= 1 {
             return Some(self);
         }
@@ -89,10 +85,10 @@ impl<T> QuadTreeNode<T> {
         return match self {
             QuadTreeNode::Data(_, _) => None,
             QuadTreeNode::Node {
-                bottom_left, 
-                bottom_right, 
-                top_left, 
-                top_right, 
+                bottom_left,
+                bottom_right,
+                top_left,
+                top_right,
                 ..
             } => {
                 let divider = 2_i32.pow(depth as u32 - 1);
@@ -101,46 +97,68 @@ impl<T> QuadTreeNode<T> {
                     if position[1] / divider == 0 {
                         bottom_left.get_parent_node(depth - 1, position)
                     } else {
-                        top_left.get_parent_node(depth - 1, [position[0], position[1] - divider])
+                        top_left.get_parent_node(
+                            depth - 1,
+                            [position[0], position[1] - divider],
+                        )
                     }
                 } else {
                     if position[1] / divider == 0 {
-                        bottom_right.get_parent_node(depth - 1, [position[0] - divider, position[1]])
+                        bottom_right.get_parent_node(
+                            depth - 1,
+                            [position[0] - divider, position[1]],
+                        )
                     } else {
-                        top_right.get_parent_node(depth - 1, [position[0] - divider, position[1] - divider])
+                        top_right.get_parent_node(
+                            depth - 1,
+                            [position[0] - divider, position[1] - divider],
+                        )
                     }
                 };
             }
         };
     }
 
-    pub fn get_node(&mut self, depth: i32, position: [i32; 2]) -> Option<&mut Self> {
+    pub fn get_node(
+        &mut self,
+        depth: i32,
+        position: [i32; 2],
+    ) -> Option<&mut Self> {
         if depth == 0 {
             return Some(self);
         }
 
         return match self {
             QuadTreeNode::Data(_, _) => None,
-            QuadTreeNode::Node { 
-                bottom_left, 
-                bottom_right, 
-                top_left, 
-                top_right, 
+            QuadTreeNode::Node {
+                bottom_left,
+                bottom_right,
+                top_left,
+                top_right,
                 ..
-             } => {
+            } => {
                 let divider = 2_i32.pow(depth as u32 - 1);
 
                 return if position[0] / divider == 0 {
                     if position[1] / divider == 0 {
                         bottom_left.get_node(depth - 1, position)
                     } else {
-                        top_left.get_node(depth - 1, [position[0], position[1] - divider])
+                        top_left.get_node(
+                            depth - 1,
+                            [position[0], position[1] - divider],
+                        )
                     }
                 } else {
                     if position[1] / divider == 0 {
-                        bottom_right.get_node(depth - 1, [position[0] - divider, position[1]])
+                        bottom_right.get_node(
+                            depth - 1,
+                            [position[0] - divider, position[1]],
+                        )
                     } else {
-                        top_right.get_node(depth - 1, [position[0] - divider, position[1] - divider])
+                        top_right.get_node(
+                            depth - 1,
+                            [position[0] - divider, position[1] - divider],
+                        )
                     }
                 };
             }

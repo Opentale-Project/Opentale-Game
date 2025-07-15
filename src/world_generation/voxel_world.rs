@@ -1,6 +1,8 @@
 use crate::world_generation::chunk_generation::mesh_generation::generate_mesh;
 use crate::world_generation::chunk_generation::voxel_generation::generate_voxels;
-use crate::world_generation::chunk_generation::{ChunkTaskData, CHUNK_SIZE, VOXEL_SIZE};
+use crate::world_generation::chunk_generation::{
+    CHUNK_SIZE, ChunkTaskData, VOXEL_SIZE,
+};
 use crate::world_generation::chunk_loading::country_cache::CountryCache;
 use crate::world_generation::chunk_loading::quad_tree_data::QuadTreeNode;
 use crate::world_generation::generation_options::GenerationOptions;
@@ -14,8 +16,9 @@ use super::chunk_generation::voxel_types::VoxelData;
 
 pub const MAX_LOD: ChunkLod = ChunkLod::OneTwentyEight;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub enum ChunkLod {
+    #[default]
     Full = 1,
     Half = 2,
     Quarter = 3,
@@ -62,7 +65,7 @@ impl ChunkLod {
         ChunkLod::from_u8(self as u8 - 1).expect("Mapping doesn't exist!")
     }
 
-    fn from_u8(number: u8) -> Option<Self> {
+    pub fn from_u8(number: u8) -> Option<Self> {
         match number {
             1 => Some(Self::Full),
             2 => Some(Self::Half),
@@ -79,7 +82,8 @@ impl ChunkLod {
 }
 
 pub struct QuadTreeVoxelWorld {
-    chunk_trees: HashMap<[i32; 2], Box<Option<QuadTreeNode<HashMap<i32, Entity>>>>>,
+    chunk_trees:
+        HashMap<[i32; 2], Box<Option<QuadTreeNode<HashMap<i32, Entity>>>>>,
 }
 
 impl Default for QuadTreeVoxelWorld {
@@ -136,9 +140,11 @@ impl VoxelWorld for QuadTreeVoxelWorld {
         country_cache: &CountryCache,
     ) -> ChunkGenerationResult {
         let new_chunk_pos = [
-            parent_pos.x * MAX_LOD.multiplier_i32() + lod_position.x * chunk_lod.multiplier_i32(),
+            parent_pos.x * MAX_LOD.multiplier_i32()
+                + lod_position.x * chunk_lod.multiplier_i32(),
             chunk_height,
-            parent_pos.y * MAX_LOD.multiplier_i32() + lod_position.y * chunk_lod.multiplier_i32(),
+            parent_pos.y * MAX_LOD.multiplier_i32()
+                + lod_position.y * chunk_lod.multiplier_i32(),
         ];
 
         let (data, min_height, more) = generate_voxels(
@@ -162,7 +168,10 @@ impl VoxelWorld for QuadTreeVoxelWorld {
                 Some(mesh) => Some(ChunkTaskData {
                     transform: Transform::from_translation(chunk_transform_pos),
                     collider: if chunk_lod == ChunkLod::Full {
-                        Some(Collider::trimesh(mesh.1, mesh.2).expect("Failed to build trimesh"))
+                        Some(
+                            Collider::trimesh(mesh.1, mesh.2)
+                                .expect("Failed to build trimesh"),
+                        )
                     } else {
                         None
                     },

@@ -1,26 +1,16 @@
 use crate::animation::despawn_animation::DespawnAnimation;
 use crate::world_generation::chunk_generation::{
-    ChunkGenerationTask, ChunkGenerator, ChunkParent, CHUNK_SIZE, VOXEL_SIZE,
+    CHUNK_SIZE, ChunkGenerationTask, ChunkGenerator, ChunkParent, VOXEL_SIZE,
 };
-use crate::world_generation::voxel_world::{ChunkLod, QuadTreeVoxelWorld, VoxelWorld, MAX_LOD};
-use bevy::ecs::schedule::IntoScheduleConfigs;
+use crate::world_generation::chunk_loading::chunk_pos::AbsoluteChunkPos;
+use crate::world_generation::voxel_world::{
+    ChunkLod, MAX_LOD, QuadTreeVoxelWorld, VoxelWorld,
+};
 use bevy::log::info;
+use bevy::math::Vec3Swizzles;
 use bevy::prelude::{
-    App, Commands, Component, Entity, Plugin, Query, ResMut, Transform, Update, Vec3,
+    Commands, Component, Entity, Query, ResMut, Transform, Vec3,
 };
-
-pub struct ChunkLoaderPlugin;
-
-impl Plugin for ChunkLoaderPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (load_chunks, unload_chunks).after_ignore_deferred(
-                crate::world_generation::chunk_generation::upgrade_quad_trees,
-            ),
-        );
-    }
-}
 
 #[derive(Component)]
 pub struct ChunkLoader {
@@ -39,19 +29,45 @@ impl Default for ChunkLoader {
     }
 }
 
+impl ChunkLoader {
+    pub fn get_min_lod_for_chunk(
+        &self,
+        chunk_pos: AbsoluteChunkPos,
+        loader_pos: Vec3,
+    ) -> ChunkLod {
+        for (i, lod_render_distance) in self.lod_range.iter().enumerate() {
+            let render_distance =
+                (lod_render_distance * CHUNK_SIZE as i32) as f32 * VOXEL_SIZE;
+
+            if chunk_pos.get_pos_center().distance_squared(loader_pos.xz())
+                < render_distance
+            {
+                return ChunkLod::from_u8(i as u8).expect("LOD not found!");
+            }
+        }
+
+        MAX_LOD
+    }
+}
+
 fn load_chunks(
     mut voxel_world: ResMut<QuadTreeVoxelWorld>,
     mut commands: Commands,
     chunk_loaders: Query<(&ChunkLoader, &Transform)>,
 ) {
     for (chunk_loader, transform) in &chunk_loaders {
-        let loader_chunk_pos = get_chunk_position(transform.translation, MAX_LOD);
+        let loader_chunk_pos =
+            get_chunk_position(transform.translation, MAX_LOD);
 
         for x in -chunk_loader.load_range..chunk_loader.load_range + 1 {
             for z in -chunk_loader.load_range..chunk_loader.load_range + 1 {
-                let chunk_pos = [loader_chunk_pos[0] + x, loader_chunk_pos[1] + z];
+                let chunk_pos =
+                    [loader_chunk_pos[0] + x, loader_chunk_pos[1] + z];
                 if !voxel_world.has_chunk(chunk_pos) {
-                    commands.spawn((ChunkGenerator(chunk_pos), ChunkParent(chunk_pos)));
+                    commands.spawn((
+                        ChunkGenerator(chunk_pos),
+                        ChunkParent(chunk_pos),
+                    ));
                     if !voxel_world.add_chunk(chunk_pos, None) {
                         info!("Chunk already exists!");
                     }
@@ -74,9 +90,12 @@ fn unload_chunks(
         let chunk_position = chunk_parent.0;
 
         for (chunk_loader, chunk_loader_transform) in &chunk_loaders {
-            let loader_chunk_pos = get_chunk_position(chunk_loader_transform.translation, MAX_LOD);
-            if (chunk_position[0] - loader_chunk_pos[0]).abs() < chunk_loader.unload_range
-                && (chunk_position[1] - loader_chunk_pos[1]).abs() < chunk_loader.unload_range
+            let loader_chunk_pos =
+                get_chunk_position(chunk_loader_transform.translation, MAX_LOD);
+            if (chunk_position[0] - loader_chunk_pos[0]).abs()
+                < chunk_loader.unload_range
+                && (chunk_position[1] - loader_chunk_pos[1]).abs()
+                    < chunk_loader.unload_range
             {
                 should_unload = false;
                 break;
@@ -93,7 +112,7 @@ fn unload_chunks(
                 .remove::<ChunkParent>()
                 .insert(DespawnAnimation::default());
             for child in &children {
-                if child.1 .1 == entity {
+                if child.1.1 == entity {
                     info!("Cancelled Child!");
                     commands.entity(child.0).remove::<ChunkGenerationTask>();
                 }
@@ -104,9 +123,11 @@ fn unload_chunks(
 
 pub fn get_chunk_position(global_position: Vec3, lod: ChunkLod) -> [i32; 2] {
     [
-        (global_position.x / (CHUNK_SIZE as f32 * VOXEL_SIZE * lod.multiplier_f32())).floor()
-            as i32,
-        (global_position.z / (CHUNK_SIZE as f32 * VOXEL_SIZE * lod.multiplier_f32())).floor()
-            as i32,
+        (global_position.x
+            / (CHUNK_SIZE as f32 * VOXEL_SIZE * lod.multiplier_f32()))
+        .floor() as i32,
+        (global_position.z
+            / (CHUNK_SIZE as f32 * VOXEL_SIZE * lod.multiplier_f32()))
+        .floor() as i32,
     ]
 }
