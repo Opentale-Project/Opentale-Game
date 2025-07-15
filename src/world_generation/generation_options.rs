@@ -244,7 +244,7 @@ fn vox_data_to_blocks(vox_data: &VoxData) -> Vec<Vec<Vec<BlockType>>> {
             voxel.point.y as usize,
             voxel.point.z as usize,
         ];
-        result[x][y][z] =BlockType::Stone;
+        result[x][z][y] = BlockType::Stone;
     }
 
     result
