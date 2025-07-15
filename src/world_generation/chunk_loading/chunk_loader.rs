@@ -1,16 +1,10 @@
-use crate::animation::despawn_animation::DespawnAnimation;
-use crate::world_generation::chunk_generation::{
-    CHUNK_SIZE, ChunkGenerationTask, ChunkGenerator, ChunkParent, VOXEL_SIZE,
-};
+use crate::world_generation::chunk_generation::{CHUNK_SIZE, VOXEL_SIZE};
 use crate::world_generation::chunk_loading::chunk_pos::AbsoluteChunkPos;
-use crate::world_generation::voxel_world::{
-    ChunkLod, MAX_LOD, QuadTreeVoxelWorld, VoxelWorld,
+use crate::world_generation::chunk_loading::chunk_tree::{
+    ChunkTree, ChunkTreePos,
 };
-use bevy::log::info;
-use bevy::math::Vec3Swizzles;
-use bevy::prelude::{
-    Commands, Component, Entity, Query, ResMut, Transform, Vec3,
-};
+use crate::world_generation::voxel_world::{ChunkLod, MAX_LOD};
+use bevy::prelude::*;
 
 #[derive(Component)]
 pub struct ChunkLoader {
@@ -50,51 +44,46 @@ impl ChunkLoader {
     }
 }
 
-fn load_chunks(
-    mut voxel_world: ResMut<QuadTreeVoxelWorld>,
+pub fn load_chunks(
+    chunk_trees: Query<&ChunkTree>,
     mut commands: Commands,
     chunk_loaders: Query<(&ChunkLoader, &Transform)>,
 ) {
+    let chunk_trees = chunk_trees.iter().collect::<Vec<&ChunkTree>>();
+
     for (chunk_loader, transform) in &chunk_loaders {
-        let loader_chunk_pos =
-            get_chunk_position(transform.translation, MAX_LOD);
+        let tree_pos =
+            ChunkTreePos::from_global_pos(transform.translation.xz());
 
         for x in -chunk_loader.load_range..chunk_loader.load_range + 1 {
             for z in -chunk_loader.load_range..chunk_loader.load_range + 1 {
-                let chunk_pos =
-                    [loader_chunk_pos[0] + x, loader_chunk_pos[1] + z];
-                if !voxel_world.has_chunk(chunk_pos) {
-                    commands.spawn((
-                        ChunkGenerator(chunk_pos),
-                        ChunkParent(chunk_pos),
-                    ));
-                    if !voxel_world.add_chunk(chunk_pos, None) {
-                        info!("Chunk already exists!");
-                    }
+                let tree_pos = ChunkTreePos::new(*tree_pos + IVec2::new(x, z));
+
+                if !chunk_trees.iter().any(|tree| tree.position == tree_pos) {
+                    commands.spawn(ChunkTree { position: tree_pos });
                 }
             }
         }
     }
 }
 
-fn unload_chunks(
-    mut voxel_world: ResMut<QuadTreeVoxelWorld>,
+pub fn unload_chunks(
     mut commands: Commands,
     chunk_loaders: Query<(&ChunkLoader, &Transform)>,
-    chunks: Query<(Entity, &ChunkParent)>,
-    children: Query<(Entity, &ChunkGenerationTask)>,
+    chunk_trees: Query<(Entity, &ChunkTree)>,
 ) {
-    for (entity, chunk_parent) in &chunks {
+    for (entity, chunk_parent) in chunk_trees {
         let mut should_unload = true;
 
-        let chunk_position = chunk_parent.0;
+        let chunk_position = chunk_parent.position;
 
         for (chunk_loader, chunk_loader_transform) in &chunk_loaders {
-            let loader_chunk_pos =
-                get_chunk_position(chunk_loader_transform.translation, MAX_LOD);
-            if (chunk_position[0] - loader_chunk_pos[0]).abs()
+            let loader_chunk_pos = ChunkTreePos::from_global_pos(
+                chunk_loader_transform.translation.xz(),
+            );
+            if (chunk_position.x - loader_chunk_pos.x).abs()
                 < chunk_loader.unload_range
-                && (chunk_position[1] - loader_chunk_pos[1]).abs()
+                && (chunk_position.y - loader_chunk_pos.y).abs()
                     < chunk_loader.unload_range
             {
                 should_unload = false;
@@ -106,18 +95,7 @@ fn unload_chunks(
             continue;
         }
 
-        if voxel_world.remove_chunk(chunk_position) {
-            let mut chunk_owner = commands.entity(entity);
-            chunk_owner
-                .remove::<ChunkParent>()
-                .insert(DespawnAnimation::default());
-            for child in &children {
-                if child.1.1 == entity {
-                    info!("Cancelled Child!");
-                    commands.entity(child.0).remove::<ChunkGenerationTask>();
-                }
-            }
-        }
+        commands.entity(entity).despawn();
     }
 }
 

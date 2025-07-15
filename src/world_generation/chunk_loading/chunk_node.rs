@@ -1,13 +1,12 @@
 use std::{
-    ops::DerefMut,
+    ops::Deref,
     sync::{Arc, atomic::AtomicI8},
 };
 
 use bevy::prelude::*;
-use itertools::Itertools;
 
 use crate::world_generation::{
-    chunk_generation::ChunkTaskGenerator,
+    chunk_generation::{Chunk, ChunkGenerationTask, ChunkTaskGenerator},
     chunk_loading::{
         chunk_loader::ChunkLoader, chunk_tree::ChunkTreePos,
         lod_position::LodPosition,
@@ -68,10 +67,10 @@ impl ChunkNode {
 /// bottom_left: -x, -y
 #[derive(Clone, Copy)]
 pub struct ChunkNodeChildren {
-    top_right: Entity,
-    top_left: Entity,
-    bottom_right: Entity,
-    bottom_left: Entity,
+    pub top_right: Entity,
+    pub top_left: Entity,
+    pub bottom_right: Entity,
+    pub bottom_left: Entity,
 }
 
 pub fn recurse_chunk_nodes(
@@ -157,4 +156,92 @@ fn devide_chunk_node(
         bottom_right,
         bottom_left,
     });
+
+    chunk_node.is_leaf = false;
+}
+
+pub fn update_added_chunks(
+    mut commands: Commands,
+    mut added_chunks: Query<
+        (&mut ChunkNode, Option<&Chunk>, Entity),
+        Added<Chunk>,
+    >,
+) {
+    let mut all_chunk_nodes =
+        added_chunks
+            .iter_mut()
+            .collect::<Vec<(Mut<ChunkNode>, Option<&Chunk>, Entity)>>();
+    let added_chunks_copy = all_chunk_nodes
+        .iter()
+        .map(|x| (x.0.deref().clone(), x.1.clone(), x.2))
+        .collect::<Vec<(ChunkNode, Option<&Chunk>, Entity)>>();
+
+    for (chunk_node, chunk, entity) in added_chunks_copy {
+        let Some(chunk) = chunk else {
+            continue;
+        };
+
+        if chunk.generate_above {
+            let mut child_entity = commands.spawn_empty();
+            child_entity.insert(ChunkTaskGenerator(
+                *chunk_node.tree_pos,
+                chunk_node.position.lod,
+                chunk_node.position.relative_position,
+                chunk.chunk_height + 1,
+                child_entity.id(),
+            ));
+            let child_entity = child_entity.id();
+            commands.entity(entity).add_child(child_entity);
+        }
+
+        let Some(parent) = chunk_node.parent else {
+            continue;
+        };
+
+        if chunk_node.is_leaf
+            && let Some(tree_children) = chunk_node.tree_children
+        {
+            commands.entity(tree_children.top_right).despawn();
+            commands.entity(tree_children.top_left).despawn();
+            commands.entity(tree_children.bottom_right).despawn();
+            commands.entity(tree_children.bottom_left).despawn();
+        }
+
+        update_parent_count(parent, &mut all_chunk_nodes, &mut commands);
+    }
+}
+
+fn update_parent_count(
+    parent: Entity,
+    chunk_nodes: &mut Vec<(Mut<ChunkNode>, Option<&Chunk>, Entity)>,
+    commands: &mut Commands,
+) {
+    let parent_node = chunk_nodes
+        .iter_mut()
+        .find(|parent_node| parent_node.2 == parent);
+
+    let Some((parent_node, _, parent_node_entity)) = parent_node else {
+        return;
+    };
+
+    let child_count = parent_node
+        .children_completion
+        .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+        + 1;
+
+    if child_count >= 4 {
+        remove_chunk_components(commands, *parent_node_entity);
+
+        let Some(parent_parent) = parent_node.parent else {
+            return;
+        };
+
+        update_parent_count(parent_parent, chunk_nodes, commands);
+    }
+}
+
+fn remove_chunk_components(commands: &mut Commands, entity: Entity) {
+    commands
+        .entity(entity)
+        .remove::<(ChunkGenerationTask, ChunkTaskGenerator, Chunk)>();
 }

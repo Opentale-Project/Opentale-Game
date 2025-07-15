@@ -141,7 +141,11 @@ pub struct ChunkTaskGenerator(
 );
 
 #[derive(Component)]
-pub struct Chunk(pub [i32; 3]);
+pub struct Chunk {
+    pub position: [i32; 3],
+    pub generate_above: bool,
+    pub chunk_height: i32,
+}
 
 #[derive(Component, Reflect)]
 pub struct ChunkParent(pub [i32; 2]);
@@ -670,81 +674,81 @@ fn set_generated_chunks(
         if let Some(chunk_generation_result) =
             future::block_on(future::poll_once(&mut task.0))
         {
-            let tree_depth = <ChunkLod as Into<i32>>::into(MAX_LOD)
-                - <ChunkLod as Into<i32>>::into(chunk_generation_result.lod);
+            // let tree_depth = <ChunkLod as Into<i32>>::into(MAX_LOD)
+            //     - <ChunkLod as Into<i32>>::into(chunk_generation_result.lod);
 
-            let Some(tree) = voxel_world
-                .get_chunk(chunk_generation_result.parent_pos.to_array())
-            else {
-                info!("Owner not found!");
-                continue;
-            };
+            // let Some(tree) = voxel_world
+            //     .get_chunk(chunk_generation_result.parent_pos.to_array())
+            // else {
+            //     info!("Owner not found!");
+            //     continue;
+            // };
 
-            let Some(tree) = tree.as_mut() else {
-                info!("Owner not found");
-                continue;
-            };
+            // let Some(tree) = tree.as_mut() else {
+            //     info!("Owner not found");
+            //     continue;
+            // };
 
-            let Some(node) = tree.get_node(
-                tree_depth,
-                chunk_generation_result.lod_position.to_array(),
-            ) else {
-                info!(
-                    "Map not found! depth: {0}, pos: [{1}, {2}]",
-                    <ChunkLod as Into<i32>>::into(MAX_LOD)
-                        - <ChunkLod as Into<i32>>::into(
-                            chunk_generation_result.lod
-                        ),
-                    chunk_generation_result.lod_position[0],
-                    chunk_generation_result.lod_position[1]
-                );
-                continue;
-            };
+            // let Some(node) = tree.get_node(
+            //     tree_depth,
+            //     chunk_generation_result.lod_position.to_array(),
+            // ) else {
+            //     info!(
+            //         "Map not found! depth: {0}, pos: [{1}, {2}]",
+            //         <ChunkLod as Into<i32>>::into(MAX_LOD)
+            //             - <ChunkLod as Into<i32>>::into(
+            //                 chunk_generation_result.lod
+            //             ),
+            //         chunk_generation_result.lod_position[0],
+            //         chunk_generation_result.lod_position[1]
+            //     );
+            //     continue;
+            // };
 
-            if chunk_generation_result.generate_above
-                && let Data(map, _) = node
-            {
-                let new_height = chunk_generation_result.chunk_height + 1;
+            // if chunk_generation_result.generate_above
+            //     && let Data(map, _) = node
+            // {
+            //     let new_height = chunk_generation_result.chunk_height + 1;
 
-                let child = commands
-                    .spawn((
-                        ChunkTaskGenerator(
-                            chunk_generation_result.parent_pos,
-                            chunk_generation_result.lod,
-                            chunk_generation_result.lod_position,
-                            new_height,
-                            task.1,
-                        ),
-                        Name::new(format!(
-                            "SubChunk[lod: {:?}, pos: {:?}, height: {}]",
-                            chunk_generation_result.lod,
-                            chunk_generation_result.lod_position,
-                            new_height
-                        )),
-                        Visibility::Visible,
-                    ))
-                    .id();
+            //     let child = commands
+            //         .spawn((
+            //             ChunkTaskGenerator(
+            //                 chunk_generation_result.parent_pos,
+            //                 chunk_generation_result.lod,
+            //                 chunk_generation_result.lod_position,
+            //                 new_height,
+            //                 task.1,
+            //             ),
+            //             Name::new(format!(
+            //                 "SubChunk[lod: {:?}, pos: {:?}, height: {}]",
+            //                 chunk_generation_result.lod,
+            //                 chunk_generation_result.lod_position,
+            //                 new_height
+            //             )),
+            //             Visibility::Visible,
+            //         ))
+            //         .id();
 
-                commands.entity(task.1).add_child(child);
+            //     commands.entity(task.1).add_child(child);
 
-                map.insert(new_height, child);
-            } else if let Data(_, despawn_entities) = node {
-                for despawn_entity in despawn_entities.clone() {
-                    if let Ok(mut entity) =
-                        commands.get_entity(despawn_entity.clone())
-                    {
-                        entity.despawn();
-                    }
-                }
+            //     map.insert(new_height, child);
+            // } else if let Data(_, despawn_entities) = node {
+            //     for despawn_entity in despawn_entities.clone() {
+            //         if let Ok(mut entity) =
+            //             commands.get_entity(despawn_entity.clone())
+            //         {
+            //             entity.despawn();
+            //         }
+            //     }
 
-                despawn_entities.clear();
-            } else {
-                tree.add_to_parent(
-                    tree_depth,
-                    chunk_generation_result.lod_position.to_array(),
-                    &mut commands,
-                );
-            }
+            //     despawn_entities.clear();
+            // } else {
+            //     tree.add_to_parent(
+            //         tree_depth,
+            //         chunk_generation_result.lod_position.to_array(),
+            //         &mut commands,
+            //     );
+            // }
 
             if let Ok(mut current_entity) = commands.get_entity(entity) {
                 if let Some(chunk_task_data) = chunk_generation_result.task_data
@@ -758,11 +762,16 @@ fn set_generated_chunks(
                         chunk_task_data.transform,
                         Mesh3d(meshes.add(chunk_task_data.mesh)),
                         MeshMaterial3d(generation_assets.material.clone()),
-                        Chunk([
-                            chunk_generation_result.parent_pos[0],
-                            chunk_generation_result.chunk_height,
-                            chunk_generation_result.parent_pos[1],
-                        ]),
+                        Chunk {
+                            position: [
+                                chunk_generation_result.parent_pos[0],
+                                chunk_generation_result.chunk_height,
+                                chunk_generation_result.parent_pos[1],
+                            ],
+                            generate_above: chunk_generation_result
+                                .generate_above,
+                            chunk_height: chunk_generation_result.chunk_height,
+                        },
                         //SpawnAnimation::default()
                     ));
 
