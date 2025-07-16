@@ -18,6 +18,14 @@ impl AbsoluteChunkPos {
         (self.0 * CHUNK_SIZE as i32 + (CHUNK_SIZE as i32 / 2)).as_vec2()
             * VOXEL_SIZE
     }
+
+    pub fn from_absolute(absolute_pos: Vec3) -> Self {
+        Self::new(
+            (absolute_pos.xz() / VOXEL_SIZE / CHUNK_SIZE as f32)
+                .floor()
+                .as_ivec2(),
+        )
+    }
 }
 
 impl From<IVec2> for AbsoluteChunkPos {

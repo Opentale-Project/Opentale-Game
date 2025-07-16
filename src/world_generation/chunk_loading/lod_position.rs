@@ -85,4 +85,23 @@ impl LodPosition {
                 .map(move |y| RelativeChunkPos::new(IVec2::new(x, y)))
         })
     }
+
+    pub fn get_closest_chunk_pos(
+        &self,
+        loader_chunk_pos: AbsoluteChunkPos,
+        tree_pos: ChunkTreePos,
+    ) -> AbsoluteChunkPos {
+        let min_chunk_pos = *self.get_absolute_chunk_pos(tree_pos);
+        let max_chunk_pos = (*LodPosition::new(
+            self.lod,
+            self.relative_position.x + 1,
+            self.relative_position.y + 1,
+        )
+        .get_absolute_chunk_pos(tree_pos))
+            - IVec2::ONE;
+
+        AbsoluteChunkPos::new(
+            loader_chunk_pos.min(max_chunk_pos).max(min_chunk_pos),
+        )
+    }
 }

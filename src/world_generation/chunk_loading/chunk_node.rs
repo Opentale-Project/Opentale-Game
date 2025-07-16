@@ -99,50 +99,32 @@ pub fn recurse_chunk_nodes(
     mut commands: Commands,
     chunk_nodes: Query<(&mut ChunkNode, Entity)>,
     chunk_loaders: Query<(&ChunkLoader, &Transform)>,
-    mut query_stepper: ResMut<ChunkNodeQueryStepper>,
 ) {
     let cache_map: RefCell<HashMap<(AbsoluteChunkPos, ChunkLoader), ChunkLod>> =
         RefCell::new(HashMap::new());
 
-    let step_count = 1;
-
-    let filtered = chunk_nodes
+    for (mut chunk_node, chunk_node_entity) in chunk_nodes
         .into_iter()
         .sort_by::<(&ChunkNode, Entity)>(|a, b| {
             a.0.position.lod.cmp(&b.0.position.lod).reverse()
         })
-        .skip(query_stepper.current_steps)
-        .take(step_count)
-        .collect_vec();
-
-    query_stepper.current_steps += step_count;
-    if filtered.len() == 0 {
-        query_stepper.current_steps = 0;
-    }
-
-    for (mut chunk_node, chunk_node_entity) in filtered {
+    {
         let tree_pos = chunk_node.tree_pos;
-        let min_lod = chunk_node
-            .position
-            .get_containing_chunk_pos()
-            .flat_map(|chunk_pos| {
-                let pos_clone = chunk_pos.clone();
-                let cache_map = cache_map.clone();
-                chunk_loaders.iter().map(move |chunk_loader| {
-                    let absolute = pos_clone.to_absolute(tree_pos);
-                    let mut cache_map = cache_map.borrow_mut();
-                    if let Some(cache_lod) =
-                        cache_map.get(&(absolute, *chunk_loader.0))
-                    {
-                        return *cache_lod;
-                    }
-                    let lod = &chunk_loader.0.get_min_lod_for_chunk(
-                        pos_clone.to_absolute(tree_pos),
-                        chunk_loader.1.translation,
-                    );
-                    cache_map.insert((absolute, *chunk_loader.0), *lod);
-                    *lod
-                })
+        let min_lod = chunk_loaders
+            .iter()
+            .map(|chunk_loader| {
+                let chunk_pos =
+                    AbsoluteChunkPos::from_absolute(chunk_loader.1.translation);
+                let closest = chunk_node
+                    .position
+                    .get_closest_chunk_pos(chunk_pos, tree_pos);
+                let lod = chunk_loader
+                    .0
+                    .get_min_lod_for_chunk(closest, chunk_loader.1.translation);
+                cache_map
+                    .borrow_mut()
+                    .insert((closest, *chunk_loader.0), lod);
+                lod
             })
             .min();
 
