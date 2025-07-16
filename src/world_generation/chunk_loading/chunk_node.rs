@@ -1,20 +1,27 @@
 use std::{
+    cell::RefCell,
+    collections::HashMap,
     ops::Deref,
     sync::{Arc, atomic::AtomicI8},
 };
 
 use bevy::prelude::*;
+use itertools::Itertools;
 
 use crate::world_generation::{
-    chunk_generation::{Chunk, ChunkGenerationTask, ChunkTaskGenerator},
-    chunk_loading::{
-        chunk_loader::ChunkLoader, chunk_tree::ChunkTreePos,
-        lod_position::LodPosition,
+    chunk_generation::{
+        CHUNK_SIZE, Chunk, ChunkGenerationTask, ChunkTaskGenerator, VOXEL_SIZE,
     },
+    chunk_loading::{
+        chunk_loader::ChunkLoader, chunk_pos::AbsoluteChunkPos,
+        chunk_tree::ChunkTreePos, lod_position::LodPosition,
+        query_stepper::ChunkNodeQueryStepper,
+    },
+    voxel_world::ChunkLod,
 };
 
 /// The Chunk Node component represents a branch in the Quad-Tree.
-#[derive(Component, Default, Clone)]
+#[derive(Component, Clone)]
 pub struct ChunkNode {
     tree_pos: ChunkTreePos,
     position: LodPosition,
@@ -22,6 +29,21 @@ pub struct ChunkNode {
     children_completion: Arc<AtomicI8>,
     tree_children: Option<ChunkNodeChildren>,
     is_leaf: bool,
+    has_generated: bool,
+}
+
+impl Default for ChunkNode {
+    fn default() -> Self {
+        Self {
+            tree_pos: Default::default(),
+            position: Default::default(),
+            parent: Default::default(),
+            children_completion: Default::default(),
+            tree_children: Default::default(),
+            is_leaf: true,
+            has_generated: false,
+        }
+    }
 }
 
 impl ChunkNode {
@@ -77,24 +99,49 @@ pub fn recurse_chunk_nodes(
     mut commands: Commands,
     chunk_nodes: Query<(&mut ChunkNode, Entity)>,
     chunk_loaders: Query<(&ChunkLoader, &Transform)>,
+    mut query_stepper: ResMut<ChunkNodeQueryStepper>,
 ) {
-    for (mut chunk_node, chunk_node_entity) in chunk_nodes
+    let cache_map: RefCell<HashMap<(AbsoluteChunkPos, ChunkLoader), ChunkLod>> =
+        RefCell::new(HashMap::new());
+
+    let step_count = 1;
+
+    let filtered = chunk_nodes
         .into_iter()
         .sort_by::<(&ChunkNode, Entity)>(|a, b| {
             a.0.position.lod.cmp(&b.0.position.lod).reverse()
         })
-    {
+        .skip(query_stepper.current_steps)
+        .take(step_count)
+        .collect_vec();
+
+    query_stepper.current_steps += step_count;
+    if filtered.len() == 0 {
+        query_stepper.current_steps = 0;
+    }
+
+    for (mut chunk_node, chunk_node_entity) in filtered {
         let tree_pos = chunk_node.tree_pos;
         let min_lod = chunk_node
             .position
             .get_containing_chunk_pos()
             .flat_map(|chunk_pos| {
                 let pos_clone = chunk_pos.clone();
+                let cache_map = cache_map.clone();
                 chunk_loaders.iter().map(move |chunk_loader| {
-                    chunk_loader.0.get_min_lod_for_chunk(
+                    let absolute = pos_clone.to_absolute(tree_pos);
+                    let mut cache_map = cache_map.borrow_mut();
+                    if let Some(cache_lod) =
+                        cache_map.get(&(absolute, *chunk_loader.0))
+                    {
+                        return *cache_lod;
+                    }
+                    let lod = &chunk_loader.0.get_min_lod_for_chunk(
                         pos_clone.to_absolute(tree_pos),
                         chunk_loader.1.translation,
-                    )
+                    );
+                    cache_map.insert((absolute, *chunk_loader.0), *lod);
+                    *lod
                 })
             })
             .min();
@@ -106,6 +153,8 @@ pub fn recurse_chunk_nodes(
         if min_lod < chunk_node.position.lod
             && chunk_node.tree_children.is_none()
         {
+            chunk_node.is_leaf = false;
+
             devide_chunk_node(
                 &mut chunk_node,
                 chunk_node_entity,
@@ -113,8 +162,11 @@ pub fn recurse_chunk_nodes(
             );
         }
 
-        if min_lod == chunk_node.position.lod && !chunk_node.is_leaf {
-            chunk_node.is_leaf = true;
+        if chunk_node.is_leaf
+            && !chunk_node.has_generated
+            && !chunk_node.is_added()
+        {
+            chunk_node.has_generated = true;
             commands
                 .entity(chunk_node_entity)
                 .insert(ChunkTaskGenerator(
@@ -137,10 +189,16 @@ fn devide_chunk_node(
 ) {
     let mut spawn_child = |new_pos| {
         commands
-            .spawn(ChunkNode::new_with_parent(
-                new_pos,
-                chunk_node_entity,
-                chunk_node.tree_pos,
+            .spawn((
+                ChunkNode::new_with_parent(
+                    new_pos,
+                    chunk_node_entity,
+                    chunk_node.tree_pos,
+                ),
+                Transform::from_translation(
+                    new_pos.get_absolute(chunk_node.tree_pos).extend(0.).xzy(),
+                ),
+                Visibility::Visible,
             ))
             .id()
     };
@@ -156,6 +214,13 @@ fn devide_chunk_node(
         bottom_right,
         bottom_left,
     });
+
+    commands.entity(chunk_node_entity).add_children(&[
+        top_right,
+        top_left,
+        bottom_right,
+        bottom_left,
+    ]);
 
     chunk_node.is_leaf = false;
 }
@@ -183,12 +248,15 @@ pub fn update_added_chunks(
 
         if chunk.generate_above {
             let mut child_entity = commands.spawn_empty();
-            child_entity.insert(ChunkTaskGenerator(
-                *chunk_node.tree_pos,
-                chunk_node.position.lod,
-                chunk_node.position.relative_position,
-                chunk.chunk_height + 1,
-                child_entity.id(),
+            child_entity.insert((
+                ChunkTaskGenerator(
+                    *chunk_node.tree_pos,
+                    chunk_node.position.lod,
+                    chunk_node.position.relative_position,
+                    chunk.chunk_height + 1,
+                    child_entity.id(),
+                ),
+                Transform::default(),
             ));
             let child_entity = child_entity.id();
             commands.entity(entity).add_child(child_entity);
@@ -198,9 +266,7 @@ pub fn update_added_chunks(
             continue;
         };
 
-        if chunk_node.is_leaf
-            && let Some(tree_children) = chunk_node.tree_children
-        {
+        if let Some(tree_children) = chunk_node.tree_children {
             commands.entity(tree_children.top_right).despawn();
             commands.entity(tree_children.top_left).despawn();
             commands.entity(tree_children.bottom_right).despawn();

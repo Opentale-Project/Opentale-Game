@@ -759,7 +759,7 @@ fn set_generated_chunks(
                     chunk_triangles.0[result_lod - 1] += triangle_count as u64;
 
                     current_entity.remove::<ChunkGenerationTask>().insert((
-                        chunk_task_data.transform,
+                        // chunk_task_data.transform,
                         Mesh3d(meshes.add(chunk_task_data.mesh)),
                         MeshMaterial3d(generation_assets.material.clone()),
                         Chunk {
@@ -779,9 +779,6 @@ fn set_generated_chunks(
                         current_entity.insert((
                             RigidBody::Fixed,
                             chunk_task_data.collider.unwrap(),
-                            GlobalTransform::from_translation(
-                                chunk_task_data.transform.translation,
-                            ),
                         ));
                     }
                 } else {

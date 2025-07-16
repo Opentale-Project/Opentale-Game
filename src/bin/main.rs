@@ -40,7 +40,9 @@ fn main() {
             WorldInspectorPlugin::new(),
             GameUiPlugin,
             OpentaleDebugPlugin,
-            MaterialPlugin::<ExtendedMaterial<StandardMaterial, ArrayTextureMaterial>>::default(),
+            MaterialPlugin::<
+                ExtendedMaterial<StandardMaterial, ArrayTextureMaterial>,
+            >::default(),
         ))
         .add_systems(Startup, setup)
         .insert_resource(WireframeConfig {

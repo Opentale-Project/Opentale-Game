@@ -6,7 +6,7 @@ use crate::world_generation::{
     voxel_world::MAX_LOD,
 };
 
-#[derive(Deref, DerefMut, Clone, Copy)]
+#[derive(Deref, DerefMut, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct AbsoluteChunkPos(IVec2);
 
 impl AbsoluteChunkPos {

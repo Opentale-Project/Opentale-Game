@@ -80,8 +80,9 @@ impl LodPosition {
         .get_relative_chunk_position())
             - IVec2::ONE;
 
-        (min.x..max.x).flat_map(move |x| {
-            (min.y..max.y).map(move |y| RelativeChunkPos::new(IVec2::new(x, y)))
+        (min.x..=max.x).flat_map(move |x| {
+            (min.y..=max.y)
+                .map(move |y| RelativeChunkPos::new(IVec2::new(x, y)))
         })
     }
 }

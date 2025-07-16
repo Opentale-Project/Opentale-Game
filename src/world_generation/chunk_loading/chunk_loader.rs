@@ -1,12 +1,14 @@
 use crate::world_generation::chunk_generation::{CHUNK_SIZE, VOXEL_SIZE};
+use crate::world_generation::chunk_loading::chunk_load_cache::ChunkLoadCache;
 use crate::world_generation::chunk_loading::chunk_pos::AbsoluteChunkPos;
 use crate::world_generation::chunk_loading::chunk_tree::{
     ChunkTree, ChunkTreePos,
 };
 use crate::world_generation::voxel_world::{ChunkLod, MAX_LOD};
+use bevy::math::FloatPow;
 use bevy::prelude::*;
 
-#[derive(Component)]
+#[derive(Component, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct ChunkLoader {
     pub load_range: i32,
     pub unload_range: i32,
@@ -34,9 +36,9 @@ impl ChunkLoader {
                 (lod_render_distance * CHUNK_SIZE as i32) as f32 * VOXEL_SIZE;
 
             if chunk_pos.get_pos_center().distance_squared(loader_pos.xz())
-                < render_distance
+                < render_distance.squared()
             {
-                return ChunkLod::from_u8(i as u8).expect("LOD not found!");
+                return ChunkLod::from_u8(i as u8 + 1).expect("LOD not found!");
             }
         }
 
@@ -45,12 +47,10 @@ impl ChunkLoader {
 }
 
 pub fn load_chunks(
-    chunk_trees: Query<&ChunkTree>,
+    mut chunk_load_cache: ResMut<ChunkLoadCache>,
     mut commands: Commands,
     chunk_loaders: Query<(&ChunkLoader, &Transform)>,
 ) {
-    let chunk_trees = chunk_trees.iter().collect::<Vec<&ChunkTree>>();
-
     for (chunk_loader, transform) in &chunk_loaders {
         let tree_pos =
             ChunkTreePos::from_global_pos(transform.translation.xz());
@@ -59,8 +59,15 @@ pub fn load_chunks(
             for z in -chunk_loader.load_range..chunk_loader.load_range + 1 {
                 let tree_pos = ChunkTreePos::new(*tree_pos + IVec2::new(x, z));
 
-                if !chunk_trees.iter().any(|tree| tree.position == tree_pos) {
-                    commands.spawn(ChunkTree { position: tree_pos });
+                if !chunk_load_cache.tree_map.contains_key(&tree_pos) {
+                    let tree_entity = commands.spawn((
+                        ChunkTree { position: tree_pos },
+                        Transform::default(),
+                        Visibility::Visible,
+                    ));
+                    chunk_load_cache
+                        .tree_map
+                        .insert(tree_pos, tree_entity.id());
                 }
             }
         }
@@ -71,6 +78,7 @@ pub fn unload_chunks(
     mut commands: Commands,
     chunk_loaders: Query<(&ChunkLoader, &Transform)>,
     chunk_trees: Query<(Entity, &ChunkTree)>,
+    mut chunk_load_cache: ResMut<ChunkLoadCache>,
 ) {
     for (entity, chunk_parent) in chunk_trees {
         let mut should_unload = true;
@@ -96,6 +104,7 @@ pub fn unload_chunks(
         }
 
         commands.entity(entity).despawn();
+        chunk_load_cache.tree_map.remove(&chunk_position);
     }
 }
 

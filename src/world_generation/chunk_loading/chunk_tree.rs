@@ -7,7 +7,7 @@ use crate::world_generation::{
 };
 
 /// Relative position of a Chunk Tree
-#[derive(Debug, Clone, Copy, Deref, DerefMut, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Deref, DerefMut, Default, PartialEq, Eq, Hash)]
 pub struct ChunkTreePos(IVec2);
 
 impl ChunkTreePos {
@@ -19,6 +19,13 @@ impl ChunkTreePos {
         let adjusted_pos =
             pos / (CHUNK_SIZE as f32 * VOXEL_SIZE * MAX_LOD.multiplier_f32());
         Self(adjusted_pos.floor().as_ivec2())
+    }
+
+    pub fn to_global_pos(&self) -> Vec2 {
+        self.as_vec2()
+            * CHUNK_SIZE as f32
+            * VOXEL_SIZE
+            * MAX_LOD.multiplier_f32()
     }
 }
 
@@ -40,11 +47,15 @@ pub fn init_chunk_trees(
     added_chunk_trees: Query<(&ChunkTree, Entity), Added<ChunkTree>>,
 ) {
     for (added_chunk_tree, added_chunk_tree_entity) in added_chunk_trees {
-        commands
-            .entity(added_chunk_tree_entity)
-            .with_child(ChunkNode::new(
-                LodPosition::new(MAX_LOD, 0, 0),
-                added_chunk_tree.position,
-            ));
+        let lod_pos = LodPosition::new(MAX_LOD, 0, 0);
+        commands.entity(added_chunk_tree_entity).with_child((
+            ChunkNode::new(lod_pos, added_chunk_tree.position),
+            Transform::from_translation(
+                lod_pos
+                    .get_absolute(added_chunk_tree.position)
+                    .extend(0.)
+                    .xzy(),
+            ),
+        ));
     }
 }

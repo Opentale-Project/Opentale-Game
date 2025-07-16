@@ -158,7 +158,7 @@ impl VoxelWorld for QuadTreeVoxelWorld {
 
         let chunk_transform_pos = Vec3::new(
             new_chunk_pos[0] as f32 * CHUNK_SIZE as f32 * VOXEL_SIZE,
-            0.0,
+            chunk_height as f32 * CHUNK_SIZE as f32 * VOXEL_SIZE,
             new_chunk_pos[2] as f32 * CHUNK_SIZE as f32 * VOXEL_SIZE,
         );
 

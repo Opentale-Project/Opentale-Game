@@ -1,3 +1,4 @@
+pub mod chunk_load_cache;
 pub mod chunk_loader;
 pub mod chunk_loader_plugin;
 pub mod chunk_node;
@@ -6,3 +7,4 @@ pub mod chunk_tree;
 pub mod country_cache;
 pub mod lod_position;
 pub mod quad_tree_data;
+pub mod query_stepper;
