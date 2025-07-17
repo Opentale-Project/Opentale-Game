@@ -13,8 +13,9 @@ use crate::world_generation::{
         CHUNK_SIZE, Chunk, ChunkGenerationTask, ChunkTaskGenerator, VOXEL_SIZE,
     },
     chunk_loading::{
-        chunk_loader::ChunkLoader, chunk_pos::AbsoluteChunkPos,
-        chunk_tree::ChunkTreePos, lod_position::LodPosition,
+        chunk_loader::ChunkLoader, chunk_node_children::ChunkNodeChildren,
+        chunk_pos::AbsoluteChunkPos, chunk_tree::ChunkTreePos,
+        lod_position::LodPosition, node_state::NodeState,
         query_stepper::ChunkNodeQueryStepper,
     },
     voxel_world::ChunkLod,
@@ -26,10 +27,8 @@ pub struct ChunkNode {
     tree_pos: ChunkTreePos,
     position: LodPosition,
     parent: Option<Entity>,
-    children_completion: Arc<AtomicI8>,
-    tree_children: Option<ChunkNodeChildren>,
-    is_leaf: bool,
-    has_generated: bool,
+    state: NodeState,
+    is_dead: bool,
 }
 
 impl Default for ChunkNode {
@@ -38,10 +37,11 @@ impl Default for ChunkNode {
             tree_pos: Default::default(),
             position: Default::default(),
             parent: Default::default(),
-            children_completion: Default::default(),
-            tree_children: Default::default(),
-            is_leaf: true,
-            has_generated: false,
+            state: NodeState::Leaf {
+                spawned_task: false,
+                children: None,
+            },
+            is_dead: false,
         }
     }
 }
@@ -51,7 +51,6 @@ impl ChunkNode {
         Self {
             position,
             parent: None,
-            tree_children: None,
             tree_pos,
             ..Default::default()
         }
@@ -65,66 +64,37 @@ impl ChunkNode {
         Self {
             position,
             parent: Some(parent),
-            tree_children: None,
             tree_pos,
             ..Default::default()
         }
     }
 
-    pub fn set_children(&mut self, children: ChunkNodeChildren) {
-        self.tree_children = Some(children)
+    pub fn to_branch(&mut self, node_children: ChunkNodeChildren) {
+        self.state = NodeState::Branch {
+            children: node_children,
+            child_count: Arc::new(AtomicI8::new(0)),
+        }
     }
 }
 
-/// The children of a Chunk Node.
-/// These should also be spawned as the children of the Chunk Node,
-/// so despawning the Chunk Node also despawns them.
-///
-/// top_right: +x, +y
-///
-/// top_left: -x, +y
-///
-/// bottom_right: +x, -y
-///
-/// bottom_left: -x, -y
-#[derive(Clone, Copy)]
-pub struct ChunkNodeChildren {
-    pub top_right: Entity,
-    pub top_left: Entity,
-    pub bottom_right: Entity,
-    pub bottom_left: Entity,
-}
-
-pub fn recurse_chunk_nodes(
+pub fn check_for_division(
     mut commands: Commands,
     chunk_nodes: Query<(&mut ChunkNode, Entity)>,
     chunk_loaders: Query<(&ChunkLoader, &Transform)>,
 ) {
-    let cache_map: RefCell<HashMap<(AbsoluteChunkPos, ChunkLoader), ChunkLod>> =
-        RefCell::new(HashMap::new());
-
     for (mut chunk_node, chunk_node_entity) in chunk_nodes
         .into_iter()
-        .sort_by::<(&ChunkNode, Entity)>(|a, b| {
-            a.0.position.lod.cmp(&b.0.position.lod).reverse()
-        })
+        .filter(|node| node.0.state.is_leaf() && !node.0.is_dead)
+        .sorted_by(|a, b| a.0.position.lod.cmp(&b.0.position.lod))
     {
-        let tree_pos = chunk_node.tree_pos;
         let min_lod = chunk_loaders
             .iter()
             .map(|chunk_loader| {
-                let chunk_pos =
-                    AbsoluteChunkPos::from_absolute(chunk_loader.1.translation);
-                let closest = chunk_node
-                    .position
-                    .get_closest_chunk_pos(chunk_pos, tree_pos);
-                let lod = chunk_loader
-                    .0
-                    .get_min_lod_for_chunk(closest, chunk_loader.1.translation);
-                cache_map
-                    .borrow_mut()
-                    .insert((closest, *chunk_loader.0), lod);
-                lod
+                chunk_loader.0.get_min_lod(
+                    chunk_loader.1.translation,
+                    chunk_node.position,
+                    chunk_node.tree_pos,
+                )
             })
             .min();
 
@@ -132,23 +102,23 @@ pub fn recurse_chunk_nodes(
             continue;
         };
 
-        if min_lod < chunk_node.position.lod
-            && chunk_node.tree_children.is_none()
-        {
-            chunk_node.is_leaf = false;
-
+        if min_lod < chunk_node.position.lod {
             devide_chunk_node(
                 &mut chunk_node,
                 chunk_node_entity,
                 &mut commands,
             );
+
+            continue;
         }
 
-        if chunk_node.is_leaf
-            && !chunk_node.has_generated
-            && !chunk_node.is_added()
+        if let NodeState::Leaf {
+            ref mut spawned_task,
+            children: _,
+        } = chunk_node.state
+            && !*spawned_task
         {
-            chunk_node.has_generated = true;
+            *spawned_task = true;
             commands
                 .entity(chunk_node_entity)
                 .insert(ChunkTaskGenerator(
@@ -158,6 +128,37 @@ pub fn recurse_chunk_nodes(
                     0,
                     chunk_node_entity,
                 ));
+        }
+    }
+}
+
+pub fn check_for_merging(
+    mut commands: Commands,
+    chunk_nodes: Query<(&mut ChunkNode, Entity)>,
+    chunk_loaders: Query<(&ChunkLoader, &Transform)>,
+) {
+    for (mut chunk_node, chunk_node_entity) in chunk_nodes
+        .into_iter()
+        .filter(|node| node.0.state.is_branch())
+        .sorted_by(|a, b| a.0.position.lod.cmp(&b.0.position.lod).reverse())
+    {
+        let min_lod = chunk_loaders
+            .iter()
+            .map(|chunk_loader| {
+                chunk_loader.0.get_min_lod(
+                    chunk_loader.1.translation,
+                    chunk_node.position,
+                    chunk_node.tree_pos,
+                )
+            })
+            .min();
+
+        let Some(min_lod) = min_lod else {
+            continue;
+        };
+
+        if min_lod == chunk_node.position.lod {
+            // Merge children
         }
     }
 }
@@ -190,7 +191,7 @@ fn devide_chunk_node(
     let bottom_right = spawn_child(chunk_node.position.to_bottom_right());
     let bottom_left = spawn_child(chunk_node.position.to_bottom_left());
 
-    chunk_node.set_children(ChunkNodeChildren {
+    chunk_node.to_branch(ChunkNodeChildren {
         top_right,
         top_left,
         bottom_right,
@@ -203,8 +204,6 @@ fn devide_chunk_node(
         bottom_right,
         bottom_left,
     ]);
-
-    chunk_node.is_leaf = false;
 }
 
 pub fn update_added_chunks(
@@ -248,11 +247,13 @@ pub fn update_added_chunks(
             continue;
         };
 
-        if let Some(tree_children) = chunk_node.tree_children {
-            commands.entity(tree_children.top_right).despawn();
-            commands.entity(tree_children.top_left).despawn();
-            commands.entity(tree_children.bottom_right).despawn();
-            commands.entity(tree_children.bottom_left).despawn();
+        if let NodeState::Leaf { children, .. } = chunk_node.state
+            && let Some(children) = children
+        {
+            commands.entity(children.top_right).despawn();
+            commands.entity(children.top_left).despawn();
+            commands.entity(children.bottom_right).despawn();
+            commands.entity(children.bottom_left).despawn();
         }
 
         update_parent_count(parent, &mut all_chunk_nodes, &mut commands);
@@ -272,10 +273,15 @@ fn update_parent_count(
         return;
     };
 
-    let child_count = parent_node
-        .children_completion
-        .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
-        + 1;
+    let NodeState::Branch {
+        ref child_count, ..
+    } = parent_node.state
+    else {
+        return;
+    };
+
+    let child_count =
+        child_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
 
     if child_count >= 4 {
         remove_chunk_components(commands, *parent_node_entity);

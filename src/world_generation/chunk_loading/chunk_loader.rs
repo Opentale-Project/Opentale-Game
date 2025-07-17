@@ -4,6 +4,7 @@ use crate::world_generation::chunk_loading::chunk_pos::AbsoluteChunkPos;
 use crate::world_generation::chunk_loading::chunk_tree::{
     ChunkTree, ChunkTreePos,
 };
+use crate::world_generation::chunk_loading::lod_position::LodPosition;
 use crate::world_generation::voxel_world::{ChunkLod, MAX_LOD};
 use bevy::math::FloatPow;
 use bevy::prelude::*;
@@ -43,6 +44,17 @@ impl ChunkLoader {
         }
 
         MAX_LOD
+    }
+
+    pub fn get_min_lod(
+        &self,
+        loader_pos: Vec3,
+        lod_pos: LodPosition,
+        tree_pos: ChunkTreePos,
+    ) -> ChunkLod {
+        let chunk_pos = AbsoluteChunkPos::from_absolute(loader_pos);
+        let closest = lod_pos.get_closest_chunk_pos(chunk_pos, tree_pos);
+        self.get_min_lod_for_chunk(closest, loader_pos)
     }
 }
 
