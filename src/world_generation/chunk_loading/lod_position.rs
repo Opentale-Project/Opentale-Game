@@ -68,24 +68,6 @@ impl LodPosition {
         }
     }
 
-    pub fn get_containing_chunk_pos(
-        &self,
-    ) -> impl Iterator<Item = RelativeChunkPos> + use<> {
-        let min = *self.get_relative_chunk_position();
-        let max = (*LodPosition::new(
-            self.lod,
-            self.relative_position.x + 1,
-            self.relative_position.y + 1,
-        )
-        .get_relative_chunk_position())
-            - IVec2::ONE;
-
-        (min.x..=max.x).flat_map(move |x| {
-            (min.y..=max.y)
-                .map(move |y| RelativeChunkPos::new(IVec2::new(x, y)))
-        })
-    }
-
     pub fn get_closest_chunk_pos(
         &self,
         loader_chunk_pos: AbsoluteChunkPos,

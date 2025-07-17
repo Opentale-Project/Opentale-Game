@@ -50,12 +50,12 @@ pub fn init_chunk_trees(
         let lod_pos = LodPosition::new(MAX_LOD, 0, 0);
         commands.entity(added_chunk_tree_entity).with_child((
             ChunkNode::new(lod_pos, added_chunk_tree.position),
-            Transform::from_translation(
-                lod_pos
-                    .get_absolute(added_chunk_tree.position)
-                    .extend(0.)
-                    .xzy(),
-            ),
+            Transform::default(), // Transform::from_translation(
+                                  //     lod_pos
+                                  //         .get_absolute(added_chunk_tree.position)
+                                  //         .extend(0.)
+                                  //         .xzy(),
+                                  // ),
         ));
     }
 }

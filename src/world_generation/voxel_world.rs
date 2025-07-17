@@ -166,7 +166,13 @@ impl VoxelWorld for QuadTreeVoxelWorld {
             task_data: match mesh {
                 None => None,
                 Some(mesh) => Some(ChunkTaskData {
-                    transform: Transform::from_translation(chunk_transform_pos),
+                    transform: Transform::from_translation(
+                        if chunk_height == 0 {
+                            chunk_transform_pos
+                        } else {
+                            Vec3::ZERO
+                        },
+                    ),
                     collider: if chunk_lod == ChunkLod::Full {
                         Some(
                             Collider::trimesh(mesh.1, mesh.2)

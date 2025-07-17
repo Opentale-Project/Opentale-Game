@@ -759,7 +759,7 @@ fn set_generated_chunks(
                     chunk_triangles.0[result_lod - 1] += triangle_count as u64;
 
                     current_entity.remove::<ChunkGenerationTask>().insert((
-                        // chunk_task_data.transform,
+                        chunk_task_data.transform,
                         Mesh3d(meshes.add(chunk_task_data.mesh)),
                         MeshMaterial3d(generation_assets.material.clone()),
                         Chunk {
@@ -775,12 +775,13 @@ fn set_generated_chunks(
                         //SpawnAnimation::default()
                     ));
 
-                    if chunk_generation_result.lod == ChunkLod::Full {
-                        current_entity.insert((
-                            RigidBody::Fixed,
-                            chunk_task_data.collider.unwrap(),
-                        ));
-                    }
+                    // TODO: Replace this with the new collision engine, rapier has problems with the Transform not being applied correctly...
+                    // if chunk_generation_result.lod == ChunkLod::Full {
+                    //     current_entity.insert((
+                    //         RigidBody::Fixed,
+                    //         chunk_task_data.collider.unwrap(),
+                    //     ));
+                    // }
                 } else {
                     current_entity.despawn();
                 }

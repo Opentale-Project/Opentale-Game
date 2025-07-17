@@ -5,10 +5,12 @@ use std::{
     sync::{Arc, atomic::AtomicI8},
 };
 
-use bevy::prelude::*;
+use bevy::{pbr::ExtendedMaterial, prelude::*};
+use bevy_rapier3d::prelude::{Collider, RigidBody};
 use itertools::Itertools;
 
 use crate::world_generation::{
+    array_texture::ArrayTextureMaterial,
     chunk_generation::{
         CHUNK_SIZE, Chunk, ChunkGenerationTask, ChunkTaskGenerator, VOXEL_SIZE,
     },
@@ -75,6 +77,13 @@ impl ChunkNode {
             child_count: Arc::new(AtomicI8::new(0)),
         }
     }
+
+    pub fn to_leaf(&mut self) {
+        self.state = NodeState::Leaf {
+            spawned_task: false,
+            children: None,
+        }
+    }
 }
 
 pub fn check_for_division(
@@ -87,6 +96,10 @@ pub fn check_for_division(
         .filter(|node| node.0.state.is_leaf() && !node.0.is_dead)
         .sorted_by(|a, b| a.0.position.lod.cmp(&b.0.position.lod))
     {
+        if commands.get_entity(chunk_node_entity).is_err() {
+            continue;
+        }
+
         let min_lod = chunk_loaders
             .iter()
             .map(|chunk_loader| {
@@ -139,7 +152,7 @@ pub fn check_for_merging(
 ) {
     for (mut chunk_node, chunk_node_entity) in chunk_nodes
         .into_iter()
-        .filter(|node| node.0.state.is_branch())
+        .filter(|node| node.0.state.is_branch() && !node.0.is_dead)
         .sorted_by(|a, b| a.0.position.lod.cmp(&b.0.position.lod).reverse())
     {
         let min_lod = chunk_loaders
@@ -157,8 +170,14 @@ pub fn check_for_merging(
             continue;
         };
 
-        if min_lod == chunk_node.position.lod {
-            // Merge children
+        if min_lod == chunk_node.position.lod
+            && let NodeState::Branch { children, .. } = &chunk_node.state
+        {
+            for child in children.get_all() {
+                commands.entity(child).despawn();
+            }
+
+            chunk_node.to_leaf();
         }
     }
 }
@@ -178,32 +197,48 @@ fn devide_chunk_node(
                     chunk_node_entity,
                     chunk_node.tree_pos,
                 ),
-                Transform::from_translation(
-                    new_pos.get_absolute(chunk_node.tree_pos).extend(0.).xzy(),
-                ),
+                // Transform::from_translation(
+                //     new_pos.get_absolute(chunk_node.tree_pos).extend(0.).xzy(),
+                // ),
+                Transform::default(),
                 Visibility::Visible,
             ))
             .id()
     };
 
-    let top_right = spawn_child(chunk_node.position.to_top_right());
-    let top_left = spawn_child(chunk_node.position.to_top_left());
-    let bottom_right = spawn_child(chunk_node.position.to_bottom_right());
-    let bottom_left = spawn_child(chunk_node.position.to_bottom_left());
+    let top_right = vec![spawn_child(chunk_node.position.to_top_right())];
+    let top_left = vec![spawn_child(chunk_node.position.to_top_left())];
+    let bottom_right = vec![spawn_child(chunk_node.position.to_bottom_right())];
+    let bottom_left = vec![spawn_child(chunk_node.position.to_bottom_left())];
 
     chunk_node.to_branch(ChunkNodeChildren {
-        top_right,
-        top_left,
-        bottom_right,
-        bottom_left,
+        top_right: top_right.clone(),
+        top_left: top_left.clone(),
+        bottom_right: bottom_right.clone(),
+        bottom_left: bottom_left.clone(),
     });
 
-    commands.entity(chunk_node_entity).add_children(&[
-        top_right,
-        top_left,
-        bottom_right,
-        bottom_left,
-    ]);
+    commands
+        .entity(chunk_node_entity)
+        .add_children(top_right.as_slice())
+        .add_children(top_left.as_slice())
+        .add_children(bottom_right.as_slice())
+        .add_children(bottom_left.as_slice());
+
+    commands
+        .entity(chunk_node_entity)
+        .remove::<(
+            ChunkGenerationTask,
+            ChunkTaskGenerator,
+            Chunk,
+            Mesh3d,
+            MeshMaterial3d<
+                ExtendedMaterial<StandardMaterial, ArrayTextureMaterial>,
+            >,
+            Collider,
+            RigidBody,
+        )>()
+        .insert(Transform::default());
 }
 
 pub fn update_added_chunks(
@@ -247,16 +282,16 @@ pub fn update_added_chunks(
             continue;
         };
 
-        if let NodeState::Leaf { children, .. } = chunk_node.state
-            && let Some(children) = children
-        {
-            commands.entity(children.top_right).despawn();
-            commands.entity(children.top_left).despawn();
-            commands.entity(children.bottom_right).despawn();
-            commands.entity(children.bottom_left).despawn();
-        }
+        // if let NodeState::Leaf { children, .. } = chunk_node.state
+        //     && let Some(children) = children
+        // {
+        //     commands.entity(children.top_right).despawn();
+        //     commands.entity(children.top_left).despawn();
+        //     commands.entity(children.bottom_right).despawn();
+        //     commands.entity(children.bottom_left).despawn();
+        // }
 
-        update_parent_count(parent, &mut all_chunk_nodes, &mut commands);
+        // update_parent_count(parent, &mut all_chunk_nodes, &mut commands);
     }
 }
 
