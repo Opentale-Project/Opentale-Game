@@ -13,19 +13,20 @@ use bevy::prelude::*;
 /// bottom_left: -x, -y
 #[derive(Clone)]
 pub struct ChunkNodeChildren {
-    pub top_right: Vec<Entity>,
-    pub top_left: Vec<Entity>,
-    pub bottom_right: Vec<Entity>,
-    pub bottom_left: Vec<Entity>,
+    pub top_right: Entity,
+    pub top_left: Entity,
+    pub bottom_right: Entity,
+    pub bottom_left: Entity,
 }
 
 impl ChunkNodeChildren {
     pub fn get_all(&self) -> impl Iterator<Item = Entity> {
-        self.top_right
-            .iter()
-            .chain(self.top_left.iter())
-            .chain(self.bottom_right.iter())
-            .chain(self.bottom_left.iter())
-            .cloned()
+        [
+            self.top_right,
+            self.top_left,
+            self.bottom_right,
+            self.bottom_left,
+        ]
+        .into_iter()
     }
 }

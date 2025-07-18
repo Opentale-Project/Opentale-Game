@@ -5,9 +5,11 @@ use crate::world_generation::chunk_loading::chunk_loader::{
     ChunkLoader, get_chunk_position,
 };
 use crate::world_generation::chunk_loading::chunk_loader_plugin::ChunkLoaderPlugin;
+use crate::world_generation::chunk_loading::chunk_tree::ChunkTreePos;
 use crate::world_generation::chunk_loading::country_cache::{
     COUNTRY_SIZE, CountryCache,
 };
+use crate::world_generation::chunk_loading::lod_position::LodPosition;
 use crate::world_generation::chunk_loading::quad_tree_data::QuadTreeNode;
 use crate::world_generation::chunk_loading::quad_tree_data::QuadTreeNode::{
     Data, Node,
@@ -142,7 +144,8 @@ pub struct ChunkTaskGenerator(
 
 #[derive(Component)]
 pub struct Chunk {
-    pub position: [i32; 3],
+    pub tree_position: ChunkTreePos,
+    pub lod_position: LodPosition,
     pub generate_above: bool,
     pub chunk_height: i32,
 }
@@ -763,11 +766,14 @@ fn set_generated_chunks(
                         Mesh3d(meshes.add(chunk_task_data.mesh)),
                         MeshMaterial3d(generation_assets.material.clone()),
                         Chunk {
-                            position: [
-                                chunk_generation_result.parent_pos[0],
-                                chunk_generation_result.chunk_height,
-                                chunk_generation_result.parent_pos[1],
-                            ],
+                            tree_position: ChunkTreePos::new(
+                                chunk_generation_result.parent_pos,
+                            ),
+                            lod_position: LodPosition {
+                                relative_position: chunk_generation_result
+                                    .lod_position,
+                                lod: chunk_generation_result.lod,
+                            },
                             generate_above: chunk_generation_result
                                 .generate_above,
                             chunk_height: chunk_generation_result.chunk_height,
