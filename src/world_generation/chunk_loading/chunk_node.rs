@@ -31,6 +31,7 @@ pub struct ChunkNode {
     parent: Option<Entity>,
     state: NodeState,
     is_dead: bool,
+    chunk_children: Vec<Entity>,
 }
 
 impl Default for ChunkNode {
@@ -42,9 +43,9 @@ impl Default for ChunkNode {
             state: NodeState::Leaf {
                 spawned_task: false,
                 children: None,
-                stacking: Vec::new(),
             },
             is_dead: false,
+            chunk_children: Vec::new(),
         }
     }
 }
@@ -83,7 +84,6 @@ impl ChunkNode {
         self.state = NodeState::Leaf {
             spawned_task: false,
             children: None,
-            stacking: Vec::new(),
         }
     }
 }
@@ -134,15 +134,23 @@ pub fn check_for_division(
             && !*spawned_task
         {
             *spawned_task = true;
-            commands
-                .entity(chunk_node_entity)
-                .insert(ChunkTaskGenerator(
+            let chunk_child_entity = commands.spawn_empty().id();
+            commands.entity(chunk_child_entity).insert((
+                ChunkTaskGenerator(
                     *chunk_node.tree_pos,
                     chunk_node.position.lod,
                     chunk_node.position.relative_position,
                     0,
                     chunk_node_entity,
-                ));
+                ),
+                Visibility::Visible,
+            ));
+
+            commands
+                .entity(chunk_node_entity)
+                .add_child(chunk_child_entity);
+
+            chunk_node.chunk_children.push(chunk_child_entity);
         }
     }
 }
@@ -213,12 +221,6 @@ fn devide_chunk_node(
     let bottom_right = spawn_child(chunk_node.position.to_bottom_right());
     let bottom_left = spawn_child(chunk_node.position.to_bottom_left());
 
-    if let NodeState::Leaf { stacking, .. } = &chunk_node.state {
-        for stack in stacking {
-            commands.entity(*stack).despawn();
-        }
-    }
-
     chunk_node.to_branch(ChunkNodeChildren {
         top_right: top_right,
         top_left: top_left,
@@ -233,47 +235,46 @@ fn devide_chunk_node(
         bottom_left,
     ]);
 
-    commands
-        .entity(chunk_node_entity)
-        .remove::<(
-            ChunkGenerationTask,
-            ChunkTaskGenerator,
-            Chunk,
-            Mesh3d,
-            MeshMaterial3d<
-                ExtendedMaterial<StandardMaterial, ArrayTextureMaterial>,
-            >,
-            Collider,
-            RigidBody,
-        )>()
-        .insert(Transform::default());
+    for chunk_child in &chunk_node.chunk_children {
+        // We use a try-despawn here, because the chunks can despawn themselves when they end up not having a mesh at all
+        commands.entity(*chunk_child).try_despawn();
+    }
+
+    chunk_node.chunk_children.clear();
 }
 
-pub fn stack_more_chunks(
+pub fn stack_chunks(
     mut commands: Commands,
-    added_stacked_chunks: Query<
-        (&Chunk, Entity),
-        (Without<ChunkNode>, Added<Chunk>),
-    >,
+    added_stacked_chunks: Query<(&Chunk, &ChildOf), Added<Chunk>>,
+    mut chunk_nodes: Query<(&mut ChunkNode, Entity)>,
 ) {
-    for (chunk, chunk_entity) in added_stacked_chunks {
+    for (chunk, ChildOf(chunk_node_parent)) in added_stacked_chunks {
         if !chunk.generate_above {
             continue;
         }
 
-        let mut child_entity = commands.spawn_empty();
-        child_entity.insert((
+        let (mut parent_node, _) = chunk_nodes
+            .iter_mut()
+            .find(|node| node.1 == *chunk_node_parent)
+            .expect("Parent not found!");
+
+        let chunk_child_entity = commands.spawn_empty().id();
+        commands.entity(chunk_child_entity).insert((
             ChunkTaskGenerator(
                 *chunk.tree_position,
                 chunk.lod_position.lod,
                 chunk.lod_position.relative_position,
                 chunk.chunk_height + 1,
-                child_entity.id(),
+                chunk_child_entity,
             ),
-            Transform::default(),
+            Visibility::Visible,
         ));
-        let child_entity = child_entity.id();
-        commands.entity(chunk_entity).add_child(child_entity);
+
+        commands
+            .entity(*chunk_node_parent)
+            .add_child(chunk_child_entity);
+
+        parent_node.chunk_children.push(chunk_child_entity);
     }
 }
 
@@ -291,26 +292,6 @@ pub fn update_added_chunks(
         .collect::<Vec<(ChunkNode, &Chunk, Entity)>>();
 
     for (chunk_node, chunk, entity) in added_chunks_copy {
-        if chunk.generate_above {
-            let mut child_entity = commands.spawn_empty();
-            child_entity.insert((
-                ChunkTaskGenerator(
-                    *chunk_node.tree_pos,
-                    chunk_node.position.lod,
-                    chunk_node.position.relative_position,
-                    chunk.chunk_height + 1,
-                    child_entity.id(),
-                ),
-                Transform::default(),
-            ));
-            let child_entity = child_entity.id();
-            commands.entity(entity).add_child(child_entity);
-
-            if let NodeState::Leaf { mut stacking, .. } = chunk_node.state {
-                stacking.push(entity);
-            }
-        }
-
         let Some(parent) = chunk_node.parent else {
             continue;
         };
@@ -352,7 +333,7 @@ fn update_parent_count(
         child_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
 
     if child_count >= 4 {
-        remove_chunk_components(commands, *parent_node_entity);
+        // remove_chunk_components(commands, *parent_node_entity);
 
         let Some(parent_parent) = parent_node.parent else {
             return;
@@ -360,10 +341,4 @@ fn update_parent_count(
 
         update_parent_count(parent_parent, chunk_nodes, commands);
     }
-}
-
-fn remove_chunk_components(commands: &mut Commands, entity: Entity) {
-    commands
-        .entity(entity)
-        .remove::<(ChunkGenerationTask, ChunkTaskGenerator, Chunk)>();
 }

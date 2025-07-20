@@ -158,7 +158,7 @@ impl VoxelWorld for QuadTreeVoxelWorld {
 
         let chunk_transform_pos = Vec3::new(
             new_chunk_pos[0] as f32 * CHUNK_SIZE as f32 * VOXEL_SIZE,
-            chunk_height as f32 * CHUNK_SIZE as f32 * VOXEL_SIZE,
+            0., //chunk_height as f32 * CHUNK_SIZE as f32 * VOXEL_SIZE,
             new_chunk_pos[2] as f32 * CHUNK_SIZE as f32 * VOXEL_SIZE,
         );
 
@@ -166,13 +166,7 @@ impl VoxelWorld for QuadTreeVoxelWorld {
             task_data: match mesh {
                 None => None,
                 Some(mesh) => Some(ChunkTaskData {
-                    transform: Transform::from_translation(
-                        if chunk_height == 0 {
-                            chunk_transform_pos
-                        } else {
-                            Vec3::ZERO
-                        },
-                    ),
+                    transform: Transform::from_translation(chunk_transform_pos),
                     collider: if chunk_lod == ChunkLod::Full {
                         Some(
                             Collider::trimesh(mesh.1, mesh.2)

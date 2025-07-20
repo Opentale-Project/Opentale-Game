@@ -13,7 +13,6 @@ pub enum NodeState {
     Leaf {
         spawned_task: bool,
         children: Option<ChunkNodeChildren>,
-        stacking: Vec<Entity>,
     },
 }
 
