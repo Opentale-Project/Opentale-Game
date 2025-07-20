@@ -42,7 +42,6 @@ impl Default for ChunkNode {
             parent: Default::default(),
             state: NodeState::Leaf {
                 spawned_task: false,
-                children: None,
             },
             is_dead: false,
             chunk_children: Vec::new(),
@@ -74,16 +73,25 @@ impl ChunkNode {
     }
 
     pub fn to_branch(&mut self, node_children: ChunkNodeChildren) {
-        self.state = NodeState::Branch {
+        self.state = NodeState::LeafToBranch {
             children: node_children,
             child_count: Arc::new(AtomicI8::new(0)),
+        }
+    }
+
+    pub fn to_branch_done(&mut self) {
+        let NodeState::LeafToBranch { children, .. } = &self.state else {
+            return;
+        };
+
+        self.state = NodeState::Branch {
+            children: children.clone(),
         }
     }
 
     pub fn to_leaf(&mut self) {
         self.state = NodeState::Leaf {
             spawned_task: false,
-            children: None,
         }
     }
 }
@@ -234,13 +242,6 @@ fn devide_chunk_node(
         bottom_right,
         bottom_left,
     ]);
-
-    for chunk_child in &chunk_node.chunk_children {
-        // We use a try-despawn here, because the chunks can despawn themselves when they end up not having a mesh at all
-        commands.entity(*chunk_child).try_despawn();
-    }
-
-    chunk_node.chunk_children.clear();
 }
 
 pub fn stack_chunks(
@@ -280,49 +281,51 @@ pub fn stack_chunks(
 
 pub fn update_added_chunks(
     mut commands: Commands,
-    mut added_chunks: Query<(&mut ChunkNode, &Chunk, Entity), Added<Chunk>>,
+    added_chunks: Query<(&Chunk, &ChildOf), Added<Chunk>>,
+    chunk_nodes: Query<(&mut ChunkNode, Entity)>,
 ) {
-    let mut all_chunk_nodes =
-        added_chunks
-            .iter_mut()
-            .collect::<Vec<(Mut<ChunkNode>, &Chunk, Entity)>>();
-    let added_chunks_copy = all_chunk_nodes
+    let mut all_nodes = chunk_nodes
+        .into_iter()
+        .filter(|node| match node.0.state {
+            NodeState::LeafToBranch { .. } => true,
+            NodeState::Leaf { .. } => true,
+            _ => false,
+        })
+        .collect_vec();
+
+    for (_, ChildOf(added_chunk_parent)) in added_chunks
         .iter()
-        .map(|x| (x.0.deref().clone(), x.1, x.2))
-        .collect::<Vec<(ChunkNode, &Chunk, Entity)>>();
+        .filter(|chunk| chunk.0.generate_above == false)
+    {
+        let (chunk_node, ..) = all_nodes
+            .iter()
+            .find(|node| node.1 == *added_chunk_parent)
+            .expect("No Node found for Chunk!");
 
-    for (chunk_node, chunk, entity) in added_chunks_copy {
-        let Some(parent) = chunk_node.parent else {
-            continue;
-        };
-
-        // if let NodeState::Leaf { children, .. } = chunk_node.state
-        //     && let Some(children) = children
-        // {
-        //     commands.entity(children.top_right).despawn();
-        //     commands.entity(children.top_left).despawn();
-        //     commands.entity(children.bottom_right).despawn();
-        //     commands.entity(children.bottom_left).despawn();
-        // }
-
-        // update_parent_count(parent, &mut all_chunk_nodes, &mut commands);
+        if let Some(chunk_node_parent) = chunk_node.parent {
+            update_parent_count(
+                chunk_node_parent,
+                &mut all_nodes,
+                &mut commands,
+            );
+        }
     }
 }
 
 fn update_parent_count(
     parent: Entity,
-    chunk_nodes: &mut Vec<(Mut<ChunkNode>, Option<&Chunk>, Entity)>,
+    chunk_nodes: &mut Vec<(Mut<ChunkNode>, Entity)>,
     commands: &mut Commands,
 ) {
     let parent_node = chunk_nodes
         .iter_mut()
-        .find(|parent_node| parent_node.2 == parent);
+        .find(|parent_node| parent_node.1 == parent);
 
-    let Some((parent_node, _, parent_node_entity)) = parent_node else {
+    let Some((parent_node, _)) = parent_node else {
         return;
     };
 
-    let NodeState::Branch {
+    let NodeState::LeafToBranch {
         ref child_count, ..
     } = parent_node.state
     else {
@@ -333,7 +336,14 @@ fn update_parent_count(
         child_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
 
     if child_count >= 4 {
-        // remove_chunk_components(commands, *parent_node_entity);
+        parent_node.to_branch_done();
+
+        for chunk_child in &parent_node.chunk_children {
+            // We use a try-despawn here, because the chunks can despawn themselves when they end up not having a mesh at all
+            commands.entity(*chunk_child).try_despawn();
+        }
+
+        parent_node.chunk_children.clear();
 
         let Some(parent_parent) = parent_node.parent else {
             return;

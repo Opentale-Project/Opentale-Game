@@ -111,7 +111,7 @@ impl Plugin for ChunkGenerationPlugin {
             .insert_resource(QuadTreeVoxelWorld::default())
             .insert_resource(ChunkTaskPool(
                 TaskPoolBuilder::new()
-                    .num_threads(100)
+                    .num_threads(16)
                     .stack_size(3_000_000)
                     .build(),
             ))
@@ -166,7 +166,7 @@ fn start_chunk_tasks(
 ) {
     let chunk_task_count = chunk_tasks.iter().count();
 
-    if chunk_task_count >= 1000 {
+    if chunk_task_count >= 20 {
         return;
     }
 

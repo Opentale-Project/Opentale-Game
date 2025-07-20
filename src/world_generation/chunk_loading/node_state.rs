@@ -8,11 +8,13 @@ use crate::world_generation::chunk_loading::chunk_node_children::ChunkNodeChildr
 pub enum NodeState {
     Branch {
         children: ChunkNodeChildren,
-        child_count: Arc<AtomicI8>,
     },
     Leaf {
         spawned_task: bool,
-        children: Option<ChunkNodeChildren>,
+    },
+    LeafToBranch {
+        child_count: Arc<AtomicI8>,
+        children: ChunkNodeChildren,
     },
 }
 
