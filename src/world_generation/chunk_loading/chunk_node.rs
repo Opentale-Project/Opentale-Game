@@ -5,7 +5,10 @@ use std::{
     sync::{Arc, atomic::AtomicI8},
 };
 
-use bevy::{pbr::ExtendedMaterial, prelude::*};
+use bevy::{
+    ecs::relationship::RelationshipSourceCollection, pbr::ExtendedMaterial,
+    prelude::*,
+};
 use bevy_rapier3d::prelude::{Collider, RigidBody};
 use itertools::Itertools;
 
@@ -90,9 +93,70 @@ impl ChunkNode {
     }
 
     pub fn to_leaf(&mut self) {
-        self.state = NodeState::Leaf {
+        let NodeState::Branch { children } = &self.state else {
+            return;
+        };
+
+        self.state = NodeState::BranchToLeaf {
             spawned_task: false,
+            children: children.clone(),
         }
+    }
+
+    pub fn to_leaf_done(&mut self) {
+        let NodeState::BranchToLeaf { spawned_task, .. } = &self.state else {
+            return;
+        };
+
+        self.state = NodeState::Leaf {
+            spawned_task: *spawned_task,
+        }
+    }
+}
+
+pub fn check_for_task_spawning(
+    mut commands: Commands,
+    chunk_nodes: Query<(&mut ChunkNode, Entity)>,
+) {
+    for (mut chunk_node, chunk_node_entity) in
+        chunk_nodes.into_iter().filter(|node| match node.0.state {
+            NodeState::Leaf { spawned_task } => !spawned_task,
+            NodeState::BranchToLeaf { spawned_task, .. } => !spawned_task,
+            _ => false,
+        })
+    {
+        if let NodeState::Leaf {
+            ref mut spawned_task,
+        } = chunk_node.state
+        {
+            *spawned_task = true;
+        }
+
+        if let NodeState::BranchToLeaf {
+            ref mut spawned_task,
+            ..
+        } = chunk_node.state
+        {
+            *spawned_task = true;
+        }
+
+        let chunk_child_entity = commands.spawn_empty().id();
+        commands.entity(chunk_child_entity).insert((
+            ChunkTaskGenerator(
+                *chunk_node.tree_pos,
+                chunk_node.position.lod,
+                chunk_node.position.relative_position,
+                0,
+                chunk_node_entity,
+            ),
+            Visibility::Visible,
+        ));
+
+        commands
+            .entity(chunk_node_entity)
+            .add_child(chunk_child_entity);
+
+        chunk_node.chunk_children.push(chunk_child_entity);
     }
 }
 
@@ -134,42 +198,17 @@ pub fn check_for_division(
 
             continue;
         }
-
-        if let NodeState::Leaf {
-            ref mut spawned_task,
-            ..
-        } = chunk_node.state
-            && !*spawned_task
-        {
-            *spawned_task = true;
-            let chunk_child_entity = commands.spawn_empty().id();
-            commands.entity(chunk_child_entity).insert((
-                ChunkTaskGenerator(
-                    *chunk_node.tree_pos,
-                    chunk_node.position.lod,
-                    chunk_node.position.relative_position,
-                    0,
-                    chunk_node_entity,
-                ),
-                Visibility::Visible,
-            ));
-
-            commands
-                .entity(chunk_node_entity)
-                .add_child(chunk_child_entity);
-
-            chunk_node.chunk_children.push(chunk_child_entity);
-        }
     }
 }
 
 pub fn check_for_merging(
-    mut commands: Commands,
-    chunk_nodes: Query<(&mut ChunkNode, Entity)>,
+    mut chunk_nodes: Query<(&mut ChunkNode, Entity)>,
     chunk_loaders: Query<(&ChunkLoader, &Transform)>,
 ) {
-    for (mut chunk_node, chunk_node_entity) in chunk_nodes
-        .into_iter()
+    let mut children_to_die = Vec::new();
+
+    for (mut chunk_node, _) in chunk_nodes
+        .iter_mut()
         .filter(|node| node.0.state.is_branch() && !node.0.is_dead)
         .sorted_by(|a, b| a.0.position.lod.cmp(&b.0.position.lod).reverse())
     {
@@ -191,11 +230,37 @@ pub fn check_for_merging(
         if min_lod == chunk_node.position.lod
             && let NodeState::Branch { children, .. } = &chunk_node.state
         {
-            for child in children.get_all() {
-                commands.entity(child).despawn();
-            }
+            children_to_die.extend(children.get_all());
 
             chunk_node.to_leaf();
+        }
+    }
+
+    while children_to_die.len() > 0 {
+        let current_children_to_die = children_to_die.clone();
+        children_to_die.clear();
+
+        for child_entity in current_children_to_die {
+            let (mut child_node, ..) = chunk_nodes
+                .iter_mut()
+                .find(|node| node.1 == child_entity)
+                .expect("Child not found!");
+
+            child_node.is_dead = true;
+
+            if let NodeState::Branch { children } = &child_node.state {
+                children_to_die.extend(children.get_all());
+            }
+
+            if let NodeState::BranchToLeaf { children, .. } = &child_node.state
+            {
+                children_to_die.extend(children.get_all());
+            }
+
+            if let NodeState::LeafToBranch { children, .. } = &child_node.state
+            {
+                children_to_die.extend(children.get_all());
+            }
         }
     }
 }
@@ -289,6 +354,7 @@ pub fn update_added_chunks(
         .filter(|node| match node.0.state {
             NodeState::LeafToBranch { .. } => true,
             NodeState::Leaf { .. } => true,
+            NodeState::BranchToLeaf { .. } => true,
             _ => false,
         })
         .collect_vec();
@@ -298,9 +364,17 @@ pub fn update_added_chunks(
         .filter(|chunk| chunk.0.generate_above == false)
     {
         let (chunk_node, ..) = all_nodes
-            .iter()
+            .iter_mut()
             .find(|node| node.1 == *added_chunk_parent)
             .expect("No Node found for Chunk!");
+
+        if let NodeState::BranchToLeaf { children, .. } = &chunk_node.state {
+            for child in children.get_all() {
+                commands.entity(child).despawn();
+            }
+
+            chunk_node.to_leaf_done();
+        }
 
         if let Some(chunk_node_parent) = chunk_node.parent {
             update_parent_count(
@@ -325,30 +399,40 @@ fn update_parent_count(
         return;
     };
 
-    let NodeState::LeafToBranch {
-        ref child_count, ..
-    } = parent_node.state
-    else {
-        return;
-    };
+    match &parent_node.state {
+        NodeState::BranchToLeaf { children, .. } => {
+            for child in children.get_all() {
+                commands.entity(child).despawn();
+            }
 
-    let child_count =
-        child_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+            parent_node.to_leaf_done();
 
-    if child_count >= 4 {
-        parent_node.to_branch_done();
-
-        for chunk_child in &parent_node.chunk_children {
-            // We use a try-despawn here, because the chunks can despawn themselves when they end up not having a mesh at all
-            commands.entity(*chunk_child).try_despawn();
+            if let Some(parent_parent) = parent_node.parent {
+                update_parent_count(parent_parent, chunk_nodes, commands);
+            }
         }
+        NodeState::LeafToBranch { child_count, .. } => {
+            let child_count = child_count
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+                + 1;
 
-        parent_node.chunk_children.clear();
+            if child_count >= 4 {
+                parent_node.to_branch_done();
 
-        let Some(parent_parent) = parent_node.parent else {
-            return;
-        };
+                for chunk_child in &parent_node.chunk_children {
+                    // We use a try-despawn here, because the chunks can despawn themselves when they end up not having a mesh at all
+                    commands.entity(*chunk_child).try_despawn();
+                }
 
-        update_parent_count(parent_parent, chunk_nodes, commands);
+                parent_node.chunk_children.clear();
+
+                let Some(parent_parent) = parent_node.parent else {
+                    return;
+                };
+
+                update_parent_count(parent_parent, chunk_nodes, commands);
+            }
+        }
+        _ => {}
     }
 }

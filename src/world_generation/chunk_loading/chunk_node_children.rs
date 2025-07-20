@@ -20,7 +20,7 @@ pub struct ChunkNodeChildren {
 }
 
 impl ChunkNodeChildren {
-    pub fn get_all(&self) -> impl Iterator<Item = Entity> {
+    pub fn get_all(&self) -> impl Iterator<Item = Entity> + use<> {
         [
             self.top_right,
             self.top_left,

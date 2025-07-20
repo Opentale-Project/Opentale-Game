@@ -4,8 +4,8 @@ use crate::world_generation::chunk_loading::{
     chunk_load_cache::ChunkLoadCache,
     chunk_loader::{load_chunks, unload_chunks},
     chunk_node::{
-        check_for_division, check_for_merging, stack_chunks,
-        update_added_chunks,
+        check_for_division, check_for_merging, check_for_task_spawning,
+        stack_chunks, update_added_chunks,
     },
     chunk_tree::init_chunk_trees,
     query_stepper::ChunkNodeQueryStepper,
@@ -21,6 +21,7 @@ impl Plugin for ChunkLoaderPlugin {
                 Update,
                 (
                     init_chunk_trees,
+                    check_for_task_spawning,
                     check_for_division,
                     check_for_merging,
                     load_chunks,
