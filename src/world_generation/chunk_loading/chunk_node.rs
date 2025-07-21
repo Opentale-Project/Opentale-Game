@@ -1,29 +1,15 @@
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    ops::Deref,
-    sync::{Arc, atomic::AtomicI8},
-};
+use std::sync::{Arc, atomic::AtomicI8};
 
-use bevy::{
-    ecs::relationship::RelationshipSourceCollection, pbr::ExtendedMaterial,
-    prelude::*,
-};
-use bevy_rapier3d::prelude::{Collider, RigidBody};
+use bevy::prelude::*;
 use itertools::Itertools;
 
 use crate::world_generation::{
-    array_texture::ArrayTextureMaterial,
-    chunk_generation::{
-        CHUNK_SIZE, Chunk, ChunkGenerationTask, ChunkTaskGenerator, VOXEL_SIZE,
-    },
+    chunk_generation::{Chunk, ChunkTaskGenerator},
     chunk_loading::{
         chunk_loader::ChunkLoader, chunk_node_children::ChunkNodeChildren,
-        chunk_pos::AbsoluteChunkPos, chunk_tree::ChunkTreePos,
-        lod_position::LodPosition, node_state::NodeState,
-        query_stepper::ChunkNodeQueryStepper,
+        chunk_tree::ChunkTreePos, lod_position::LodPosition,
+        node_state::NodeState,
     },
-    voxel_world::ChunkLod,
 };
 
 /// The Chunk Node component represents a branch in the Quad-Tree.
@@ -119,10 +105,15 @@ pub fn check_for_task_spawning(
     chunk_nodes: Query<(&mut ChunkNode, Entity)>,
 ) {
     for (mut chunk_node, chunk_node_entity) in
-        chunk_nodes.into_iter().filter(|node| match node.0.state {
-            NodeState::Leaf { spawned_task } => !spawned_task,
-            NodeState::BranchToLeaf { spawned_task, .. } => !spawned_task,
-            _ => false,
+        chunk_nodes.into_iter().filter(|node| {
+            !node.0.is_added()
+                && match node.0.state {
+                    NodeState::Leaf { spawned_task } => !spawned_task,
+                    NodeState::BranchToLeaf { spawned_task, .. } => {
+                        !spawned_task
+                    }
+                    _ => false,
+                }
         })
     {
         if let NodeState::Leaf {
@@ -280,9 +271,6 @@ fn devide_chunk_node(
                     chunk_node_entity,
                     chunk_node.tree_pos,
                 ),
-                // Transform::from_translation(
-                //     new_pos.get_absolute(chunk_node.tree_pos).extend(0.).xzy(),
-                // ),
                 Transform::default(),
                 Visibility::Visible,
             ))
