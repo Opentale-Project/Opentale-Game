@@ -1,19 +1,12 @@
 use crate::debug_tools::debug_resource::OpentaleDebugResource;
 use crate::player::player_component::Player;
 use crate::world_generation::chunk_generation::voxel_generation::get_terrain_noise;
-use crate::world_generation::chunk_loading::chunk_loader::{
-    ChunkLoader, get_chunk_position,
-};
 use crate::world_generation::chunk_loading::chunk_loader_plugin::ChunkLoaderPlugin;
 use crate::world_generation::chunk_loading::chunk_tree::ChunkTreePos;
 use crate::world_generation::chunk_loading::country_cache::{
     COUNTRY_SIZE, CountryCache,
 };
 use crate::world_generation::chunk_loading::lod_position::LodPosition;
-use crate::world_generation::chunk_loading::quad_tree_data::QuadTreeNode;
-use crate::world_generation::chunk_loading::quad_tree_data::QuadTreeNode::{
-    Data, Node,
-};
 use crate::world_generation::generation_assets::GenerationAssets;
 use crate::world_generation::generation_options::{
     GenerationCacheItem, GenerationOptionsResource, GenerationState,
@@ -25,10 +18,8 @@ use ::noise::{Add, Constant, NoiseFn};
 use bevy::math::Vec3A;
 use bevy::prelude::*;
 use bevy::tasks::{Task, TaskPool, TaskPoolBuilder};
-use bevy_rapier3d::prelude::{Collider, RigidBody};
+use bevy_rapier3d::prelude::Collider;
 use futures_lite::future;
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 
 pub mod mesh_generation;
 pub mod noise;
@@ -102,13 +93,8 @@ impl Plugin for ChunkGenerationPlugin {
                     draw_path_gizmos,
                 ),
             )
-            .add_systems(
-                Update,
-                start_generating_quadtree_chunks.after(upgrade_quad_trees),
-            )
-            .add_systems(Update, upgrade_quad_trees.after(set_generated_chunks))
             .add_systems(Startup, setup_gizmo_settings)
-            .insert_resource(QuadTreeVoxelWorld::default())
+            .insert_resource(QuadTreeVoxelWorld)
             .insert_resource(ChunkTaskPool(
                 TaskPoolBuilder::new()
                     .num_threads(16)
@@ -117,7 +103,7 @@ impl Plugin for ChunkGenerationPlugin {
             ))
             .insert_resource(CacheTaskPool(
                 TaskPoolBuilder::new()
-                    .num_threads(2)
+                    .num_threads(16)
                     .stack_size(3_000_000)
                     .build(),
             ))
@@ -149,9 +135,6 @@ pub struct Chunk {
     pub generate_above: bool,
     pub chunk_height: i32,
 }
-
-#[derive(Component, Reflect)]
-pub struct ChunkParent(pub [i32; 2]);
 
 #[derive(Component)]
 pub struct ChunkGenerator(pub [i32; 2]);
@@ -235,441 +218,10 @@ fn start_chunk_tasks(
     }
 }
 
-fn start_generating_quadtree_chunks(
-    mut commands: Commands,
-    mut voxel_world: ResMut<QuadTreeVoxelWorld>,
-    chunk_generators: Query<(Entity, &ChunkGenerator)>,
-    chunk_loaders: Query<(&ChunkLoader, &Transform)>,
-) {
-    for (entity, chunk_generator) in &chunk_generators {
-        match voxel_world.get_chunk(chunk_generator.0) {
-            None => {}
-            Some(chunk_tree) => {
-                let tree = generate_quad_tree_chunk(
-                    entity,
-                    MAX_LOD,
-                    [0, 0],
-                    chunk_generator.0,
-                    &chunk_loaders,
-                    &mut commands,
-                    vec![],
-                );
-
-                **chunk_tree = Some(tree);
-
-                commands.entity(entity).insert(Name::new(
-                    "Chunk [".to_owned()
-                        + &chunk_generator.0[0].to_string()
-                        + ", "
-                        + &chunk_generator.0[1].to_string()
-                        + "]",
-                ));
-
-                commands.entity(entity).remove::<ChunkGenerator>();
-            }
-        }
-    }
-}
-
-fn generate_quad_tree_chunk(
-    owner: Entity,
-    current_lod: ChunkLod,
-    current_lod_pos: [i32; 2],
-    owner_chunk_pos: [i32; 2],
-    chunk_loaders: &Query<(&ChunkLoader, &Transform)>,
-    commands: &mut Commands,
-    despawn_entities: Vec<Entity>,
-) -> QuadTreeNode<HashMap<i32, Entity>> {
-    let mut divide = false;
-
-    if current_lod != ChunkLod::Full {
-        for (chunk_loader, transform) in chunk_loaders {
-            let loader_chunk_position =
-                get_chunk_position(transform.translation, current_lod);
-            let current_chunk_pos = [
-                owner_chunk_pos[0] * current_lod.inverse_multiplier_i32()
-                    + current_lod_pos[0],
-                owner_chunk_pos[1] * current_lod.inverse_multiplier_i32()
-                    + current_lod_pos[1],
-            ];
-            let position_difference = [
-                loader_chunk_position[0] - current_chunk_pos[0],
-                loader_chunk_position[1] - current_chunk_pos[1],
-            ];
-            let current_range =
-                chunk_loader.lod_range[MAX_LOD.usize() - current_lod.usize()];
-            if position_difference[0].abs() <= current_range
-                && position_difference[1].abs() <= current_range
-            {
-                divide = true;
-            }
-        }
-    }
-
-    if divide {
-        return Node {
-            bottom_left: Box::new(generate_quad_tree_chunk(
-                owner,
-                current_lod.previous(),
-                [current_lod_pos[0] * 2, current_lod_pos[1] * 2],
-                owner_chunk_pos,
-                chunk_loaders,
-                commands,
-                vec![],
-            )),
-            bottom_right: Box::new(generate_quad_tree_chunk(
-                owner,
-                current_lod.previous(),
-                [current_lod_pos[0] * 2 + 1, current_lod_pos[1] * 2],
-                owner_chunk_pos,
-                chunk_loaders,
-                commands,
-                vec![],
-            )),
-            top_left: Box::new(generate_quad_tree_chunk(
-                owner,
-                current_lod.previous(),
-                [current_lod_pos[0] * 2, current_lod_pos[1] * 2 + 1],
-                owner_chunk_pos,
-                chunk_loaders,
-                commands,
-                vec![],
-            )),
-            top_right: Box::new(generate_quad_tree_chunk(
-                owner,
-                current_lod.previous(),
-                [current_lod_pos[0] * 2 + 1, current_lod_pos[1] * 2 + 1],
-                owner_chunk_pos,
-                chunk_loaders,
-                commands,
-                vec![],
-            )),
-            child_count: Arc::new(Mutex::new(0)),
-            chunk_entities: despawn_entities,
-        };
-    }
-
-    let child = commands
-        .spawn((
-            ChunkTaskGenerator(
-                IVec2::from_array(owner_chunk_pos),
-                current_lod,
-                IVec2::from_array(current_lod_pos),
-                0,
-                owner,
-            ),
-            Name::new(format!(
-                "SubChunk[lod: {current_lod:?}, pos:{current_lod_pos:?}]"
-            )),
-            Visibility::Visible,
-        ))
-        .id();
-
-    commands
-        .entity(owner)
-        .insert((Transform::default(), Visibility::default()));
-
-    commands.entity(owner).add_child(child);
-
-    let mut map = HashMap::new();
-    map.insert(0, child);
-
-    Data(map, despawn_entities)
-}
-
-pub(crate) fn upgrade_quad_trees(
-    mut commands: Commands,
-    mut voxel_world: ResMut<QuadTreeVoxelWorld>,
-    chunks: Query<(Entity, &ChunkParent)>,
-    chunk_loaders: Query<(&ChunkLoader, &Transform)>,
-    generated_chunks: Query<Entity, With<Chunk>>,
-) {
-    for chunk in &chunks {
-        let boxed_tree =
-            voxel_world.get_chunk(chunk.1.0).expect("Chunk not found!");
-
-        match &**boxed_tree {
-            None => {}
-            Some(chunk_tree) => {
-                let tree = upgrade_tree_recursion(
-                    chunk.0,
-                    chunk_tree,
-                    MAX_LOD,
-                    [0, 0],
-                    chunk.1.0,
-                    &chunk_loaders,
-                    &mut commands,
-                    &generated_chunks,
-                );
-
-                **boxed_tree = Some(tree);
-            }
-        }
-    }
-}
-
-fn upgrade_tree_recursion(
-    owner: Entity,
-    current_node: &QuadTreeNode<HashMap<i32, Entity>>,
-    current_lod: ChunkLod,
-    current_lod_pos: [i32; 2],
-    owner_chunk_pos: [i32; 2],
-    chunk_loaders: &Query<(&ChunkLoader, &Transform)>,
-    commands: &mut Commands,
-    generated_chunks: &Query<Entity, With<Chunk>>,
-) -> QuadTreeNode<HashMap<i32, Entity>> {
-    match current_node {
-        Data(children, entities) => {
-            let mut divide = false;
-
-            if current_lod != ChunkLod::Full {
-                for (chunk_loader, transform) in chunk_loaders {
-                    let loader_chunk_position =
-                        get_chunk_position(transform.translation, current_lod);
-                    let current_chunk_pos = [
-                        owner_chunk_pos[0]
-                            * current_lod.inverse_multiplier_i32()
-                            + current_lod_pos[0],
-                        owner_chunk_pos[1]
-                            * current_lod.inverse_multiplier_i32()
-                            + current_lod_pos[1],
-                    ];
-                    let position_difference = [
-                        loader_chunk_position[0] - current_chunk_pos[0],
-                        loader_chunk_position[1] - current_chunk_pos[1],
-                    ];
-                    let current_range = chunk_loader.lod_range
-                        [MAX_LOD.usize() - current_lod.usize()];
-                    if position_difference[0].abs() <= current_range
-                        && position_difference[1].abs() <= current_range
-                    {
-                        divide = true;
-                    }
-                }
-            }
-
-            if !divide {
-                return Data(children.clone(), entities.clone());
-            }
-
-            let entities = check_entities_for_deletion(
-                [children.clone().into_values().collect(), entities.clone()]
-                    .concat(),
-                commands,
-                generated_chunks,
-            );
-
-            // TODO: extract this code into a constructor,
-            // so we're not just looking at a massive wall of text
-            Node {
-                bottom_left: Box::new(generate_quad_tree_chunk(
-                    owner,
-                    current_lod.previous(),
-                    [current_lod_pos[0] * 2, current_lod_pos[1] * 2],
-                    owner_chunk_pos,
-                    chunk_loaders,
-                    commands,
-                    vec![],
-                )),
-                bottom_right: Box::new(generate_quad_tree_chunk(
-                    owner,
-                    current_lod.previous(),
-                    [current_lod_pos[0] * 2 + 1, current_lod_pos[1] * 2],
-                    owner_chunk_pos,
-                    chunk_loaders,
-                    commands,
-                    vec![],
-                )),
-                top_left: Box::new(generate_quad_tree_chunk(
-                    owner,
-                    current_lod.previous(),
-                    [current_lod_pos[0] * 2, current_lod_pos[1] * 2 + 1],
-                    owner_chunk_pos,
-                    chunk_loaders,
-                    commands,
-                    vec![],
-                )),
-                top_right: Box::new(generate_quad_tree_chunk(
-                    owner,
-                    current_lod.previous(),
-                    [current_lod_pos[0] * 2 + 1, current_lod_pos[1] * 2 + 1],
-                    owner_chunk_pos,
-                    chunk_loaders,
-                    commands,
-                    vec![],
-                )),
-                child_count: Arc::new(Mutex::new(0)),
-                chunk_entities: entities,
-            }
-        }
-        Node {
-            bottom_left,
-            bottom_right,
-            top_left,
-            top_right,
-            child_count: current_mutex,
-            chunk_entities: current_entities,
-        } => {
-            let mut divide = false;
-
-            if current_lod != ChunkLod::Full {
-                for (chunk_loader, transform) in chunk_loaders {
-                    let loader_chunk_position =
-                        get_chunk_position(transform.translation, current_lod);
-                    let current_chunk_pos = [
-                        owner_chunk_pos[0]
-                            * current_lod.inverse_multiplier_i32()
-                            + current_lod_pos[0],
-                        owner_chunk_pos[1]
-                            * current_lod.inverse_multiplier_i32()
-                            + current_lod_pos[1],
-                    ];
-                    let position_difference = [
-                        loader_chunk_position[0] - current_chunk_pos[0],
-                        loader_chunk_position[1] - current_chunk_pos[1],
-                    ];
-                    let current_range = chunk_loader.lod_range
-                        [MAX_LOD.usize() - current_lod.usize()];
-                    if position_difference[0].abs() <= current_range
-                        && position_difference[1].abs() <= current_range
-                    {
-                        divide = true;
-                    }
-                }
-            }
-
-            if divide {
-                return Node {
-                    bottom_left: Box::new(upgrade_tree_recursion(
-                        owner,
-                        &**bottom_left,
-                        current_lod.previous(),
-                        [current_lod_pos[0] * 2, current_lod_pos[1] * 2],
-                        owner_chunk_pos,
-                        chunk_loaders,
-                        commands,
-                        generated_chunks,
-                    )),
-                    bottom_right: Box::new(upgrade_tree_recursion(
-                        owner,
-                        &**bottom_right,
-                        current_lod.previous(),
-                        [current_lod_pos[0] * 2 + 1, current_lod_pos[1] * 2],
-                        owner_chunk_pos,
-                        chunk_loaders,
-                        commands,
-                        generated_chunks,
-                    )),
-                    top_left: Box::new(upgrade_tree_recursion(
-                        owner,
-                        &**top_left,
-                        current_lod.previous(),
-                        [current_lod_pos[0] * 2, current_lod_pos[1] * 2 + 1],
-                        owner_chunk_pos,
-                        chunk_loaders,
-                        commands,
-                        generated_chunks,
-                    )),
-                    top_right: Box::new(upgrade_tree_recursion(
-                        owner,
-                        &**top_right,
-                        current_lod.previous(),
-                        [
-                            current_lod_pos[0] * 2 + 1,
-                            current_lod_pos[1] * 2 + 1,
-                        ],
-                        owner_chunk_pos,
-                        chunk_loaders,
-                        commands,
-                        generated_chunks,
-                    )),
-                    child_count: current_mutex.clone(),
-                    chunk_entities: current_entities.clone(),
-                };
-            }
-
-            let entities = [
-                get_entities_recursive(&**bottom_left),
-                get_entities_recursive(&**bottom_right),
-                get_entities_recursive(&**top_left),
-                get_entities_recursive(&**top_right),
-                current_entities.clone(),
-            ]
-            .concat();
-
-            let entities = check_entities_for_deletion(
-                entities,
-                commands,
-                generated_chunks,
-            );
-
-            generate_quad_tree_chunk(
-                owner,
-                current_lod,
-                current_lod_pos,
-                owner_chunk_pos,
-                chunk_loaders,
-                commands,
-                entities,
-            )
-        }
-    }
-}
-
-fn check_entities_for_deletion(
-    entities: Vec<Entity>,
-    commands: &mut Commands,
-    generated_chunks: &Query<Entity, With<Chunk>>,
-) -> Vec<Entity> {
-    let mut new_entities = vec![];
-
-    for entity in entities {
-        if generated_chunks.get(entity).is_ok() {
-            new_entities.push(entity);
-        } else {
-            if let Ok(mut entity) = commands.get_entity(entity) {
-                entity.despawn();
-            } else {
-                new_entities.push(entity);
-            }
-        }
-    }
-
-    new_entities
-}
-
-fn get_entities_recursive(
-    current_node: &QuadTreeNode<HashMap<i32, Entity>>,
-) -> Vec<Entity> {
-    match current_node {
-        Data(entities, despawn_children) => [
-            entities.clone().into_values().collect(),
-            despawn_children.clone(),
-        ]
-        .concat(),
-        Node {
-            bottom_left,
-            bottom_right,
-            top_left,
-            top_right: d,
-            chunk_entities: despawn_entities,
-            ..
-        } => [
-            get_entities_recursive(&**bottom_left),
-            get_entities_recursive(&**bottom_right),
-            get_entities_recursive(&**top_left),
-            get_entities_recursive(&**d),
-            despawn_entities.clone(),
-        ]
-        .concat(),
-    }
-}
-
 fn set_generated_chunks(
     mut commands: Commands,
     mut chunks: Query<(Entity, &mut ChunkGenerationTask)>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut voxel_world: ResMut<QuadTreeVoxelWorld>,
     mut chunk_triangles: ResMut<ChunkTriangles>,
     generation_assets: Res<GenerationAssets>,
 ) {
@@ -677,82 +229,6 @@ fn set_generated_chunks(
         if let Some(chunk_generation_result) =
             future::block_on(future::poll_once(&mut task.0))
         {
-            // let tree_depth = <ChunkLod as Into<i32>>::into(MAX_LOD)
-            //     - <ChunkLod as Into<i32>>::into(chunk_generation_result.lod);
-
-            // let Some(tree) = voxel_world
-            //     .get_chunk(chunk_generation_result.parent_pos.to_array())
-            // else {
-            //     info!("Owner not found!");
-            //     continue;
-            // };
-
-            // let Some(tree) = tree.as_mut() else {
-            //     info!("Owner not found");
-            //     continue;
-            // };
-
-            // let Some(node) = tree.get_node(
-            //     tree_depth,
-            //     chunk_generation_result.lod_position.to_array(),
-            // ) else {
-            //     info!(
-            //         "Map not found! depth: {0}, pos: [{1}, {2}]",
-            //         <ChunkLod as Into<i32>>::into(MAX_LOD)
-            //             - <ChunkLod as Into<i32>>::into(
-            //                 chunk_generation_result.lod
-            //             ),
-            //         chunk_generation_result.lod_position[0],
-            //         chunk_generation_result.lod_position[1]
-            //     );
-            //     continue;
-            // };
-
-            // if chunk_generation_result.generate_above
-            //     && let Data(map, _) = node
-            // {
-            //     let new_height = chunk_generation_result.chunk_height + 1;
-
-            //     let child = commands
-            //         .spawn((
-            //             ChunkTaskGenerator(
-            //                 chunk_generation_result.parent_pos,
-            //                 chunk_generation_result.lod,
-            //                 chunk_generation_result.lod_position,
-            //                 new_height,
-            //                 task.1,
-            //             ),
-            //             Name::new(format!(
-            //                 "SubChunk[lod: {:?}, pos: {:?}, height: {}]",
-            //                 chunk_generation_result.lod,
-            //                 chunk_generation_result.lod_position,
-            //                 new_height
-            //             )),
-            //             Visibility::Visible,
-            //         ))
-            //         .id();
-
-            //     commands.entity(task.1).add_child(child);
-
-            //     map.insert(new_height, child);
-            // } else if let Data(_, despawn_entities) = node {
-            //     for despawn_entity in despawn_entities.clone() {
-            //         if let Ok(mut entity) =
-            //             commands.get_entity(despawn_entity.clone())
-            //         {
-            //             entity.despawn();
-            //         }
-            //     }
-
-            //     despawn_entities.clear();
-            // } else {
-            //     tree.add_to_parent(
-            //         tree_depth,
-            //         chunk_generation_result.lod_position.to_array(),
-            //         &mut commands,
-            //     );
-            // }
-
             if let Ok(mut current_entity) = commands.get_entity(entity) {
                 if let Some(chunk_task_data) = chunk_generation_result.task_data
                 {

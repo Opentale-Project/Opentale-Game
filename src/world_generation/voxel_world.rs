@@ -4,12 +4,10 @@ use crate::world_generation::chunk_generation::{
     CHUNK_SIZE, ChunkTaskData, VOXEL_SIZE,
 };
 use crate::world_generation::chunk_loading::country_cache::CountryCache;
-use crate::world_generation::chunk_loading::quad_tree_data::QuadTreeNode;
 use crate::world_generation::generation_options::GenerationOptions;
 use bevy::math::{IVec3, Vec3};
-use bevy::prelude::{Entity, IVec2, Resource, Transform};
+use bevy::prelude::{IVec2, Resource, Transform};
 use bevy_rapier3d::prelude::Collider;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use super::chunk_generation::voxel_types::VoxelData;
@@ -81,18 +79,7 @@ impl ChunkLod {
     }
 }
 
-pub struct QuadTreeVoxelWorld {
-    chunk_trees:
-        HashMap<[i32; 2], Box<Option<QuadTreeNode<HashMap<i32, Entity>>>>>,
-}
-
-impl Default for QuadTreeVoxelWorld {
-    fn default() -> Self {
-        Self {
-            chunk_trees: HashMap::default(),
-        }
-    }
-}
+pub struct QuadTreeVoxelWorld;
 
 pub trait VoxelWorld {
     fn generate_chunk(
@@ -103,17 +90,6 @@ pub trait VoxelWorld {
         chunk_height: i32,
         country_cache: &CountryCache,
     ) -> ChunkGenerationResult;
-    fn has_chunk(&self, chunk_position: [i32; 2]) -> bool;
-    fn add_chunk(
-        &mut self,
-        chunk_position: [i32; 2],
-        chunk: Option<QuadTreeNode<HashMap<i32, Entity>>>,
-    ) -> bool;
-    fn remove_chunk(&mut self, chunk_position: [i32; 2]) -> bool;
-    fn get_chunk(
-        &mut self,
-        chunk_position: [i32; 2],
-    ) -> Option<&mut Box<Option<QuadTreeNode<HashMap<i32, Entity>>>>>;
 }
 
 impl Resource for QuadTreeVoxelWorld {}
@@ -187,35 +163,5 @@ impl VoxelWorld for QuadTreeVoxelWorld {
             chunk_pos: IVec3::from_array(new_chunk_pos),
             min_height,
         };
-    }
-
-    fn has_chunk(&self, chunk_position: [i32; 2]) -> bool {
-        let map = self.chunk_trees.get(&chunk_position);
-        map.is_some()
-    }
-
-    fn add_chunk(
-        &mut self,
-        chunk_position: [i32; 2],
-        chunk: Option<QuadTreeNode<HashMap<i32, Entity>>>,
-    ) -> bool {
-        if self.has_chunk(chunk_position) {
-            return false;
-        }
-
-        self.chunk_trees.insert(chunk_position, Box::new(chunk));
-
-        true
-    }
-
-    fn remove_chunk(&mut self, chunk_position: [i32; 2]) -> bool {
-        self.chunk_trees.remove(&chunk_position).is_some()
-    }
-
-    fn get_chunk(
-        &mut self,
-        chunk_position: [i32; 2],
-    ) -> Option<&mut Box<Option<QuadTreeNode<HashMap<i32, Entity>>>>> {
-        self.chunk_trees.get_mut(&chunk_position)
     }
 }
