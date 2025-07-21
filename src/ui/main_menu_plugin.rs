@@ -34,7 +34,10 @@ fn add_menu_cam(mut commands: Commands) {
     commands.spawn((Camera2d, MenuCamera));
 }
 
-fn remove_menu_cam(mut commands: Commands, cameras: Query<Entity, With<MenuCamera>>) {
+fn remove_menu_cam(
+    mut commands: Commands,
+    cameras: Query<Entity, With<MenuCamera>>,
+) {
     for camera in cameras {
         commands.entity(camera).despawn();
     }

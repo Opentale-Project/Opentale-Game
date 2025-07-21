@@ -1,21 +1,22 @@
 use crate::world_generation::chunk_generation::mesh_generation::generate_mesh;
 use crate::world_generation::chunk_generation::voxel_generation::generate_voxels;
-use crate::world_generation::chunk_generation::{ChunkTaskData, CHUNK_SIZE, VOXEL_SIZE};
+use crate::world_generation::chunk_generation::{
+    CHUNK_SIZE, ChunkTaskData, VOXEL_SIZE,
+};
 use crate::world_generation::chunk_loading::country_cache::CountryCache;
-use crate::world_generation::chunk_loading::quad_tree_data::QuadTreeNode;
 use crate::world_generation::generation_options::GenerationOptions;
 use bevy::math::{IVec3, Vec3};
-use bevy::prelude::{Entity, IVec2, Resource, Transform};
+use bevy::prelude::{IVec2, Resource, Transform};
 use bevy_rapier3d::prelude::Collider;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use super::chunk_generation::voxel_types::VoxelData;
 
 pub const MAX_LOD: ChunkLod = ChunkLod::OneTwentyEight;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub enum ChunkLod {
+    #[default]
     Full = 1,
     Half = 2,
     Quarter = 3,
@@ -62,7 +63,7 @@ impl ChunkLod {
         ChunkLod::from_u8(self as u8 - 1).expect("Mapping doesn't exist!")
     }
 
-    fn from_u8(number: u8) -> Option<Self> {
+    pub fn from_u8(number: u8) -> Option<Self> {
         match number {
             1 => Some(Self::Full),
             2 => Some(Self::Half),
@@ -78,17 +79,7 @@ impl ChunkLod {
     }
 }
 
-pub struct QuadTreeVoxelWorld {
-    chunk_trees: HashMap<[i32; 2], Box<Option<QuadTreeNode<HashMap<i32, Entity>>>>>,
-}
-
-impl Default for QuadTreeVoxelWorld {
-    fn default() -> Self {
-        Self {
-            chunk_trees: HashMap::default(),
-        }
-    }
-}
+pub struct QuadTreeVoxelWorld;
 
 pub trait VoxelWorld {
     fn generate_chunk(
@@ -99,17 +90,6 @@ pub trait VoxelWorld {
         chunk_height: i32,
         country_cache: &CountryCache,
     ) -> ChunkGenerationResult;
-    fn has_chunk(&self, chunk_position: [i32; 2]) -> bool;
-    fn add_chunk(
-        &mut self,
-        chunk_position: [i32; 2],
-        chunk: Option<QuadTreeNode<HashMap<i32, Entity>>>,
-    ) -> bool;
-    fn remove_chunk(&mut self, chunk_position: [i32; 2]) -> bool;
-    fn get_chunk(
-        &mut self,
-        chunk_position: [i32; 2],
-    ) -> Option<&mut Box<Option<QuadTreeNode<HashMap<i32, Entity>>>>>;
 }
 
 impl Resource for QuadTreeVoxelWorld {}
@@ -136,9 +116,11 @@ impl VoxelWorld for QuadTreeVoxelWorld {
         country_cache: &CountryCache,
     ) -> ChunkGenerationResult {
         let new_chunk_pos = [
-            parent_pos.x * MAX_LOD.multiplier_i32() + lod_position.x * chunk_lod.multiplier_i32(),
+            parent_pos.x * MAX_LOD.multiplier_i32()
+                + lod_position.x * chunk_lod.multiplier_i32(),
             chunk_height,
-            parent_pos.y * MAX_LOD.multiplier_i32() + lod_position.y * chunk_lod.multiplier_i32(),
+            parent_pos.y * MAX_LOD.multiplier_i32()
+                + lod_position.y * chunk_lod.multiplier_i32(),
         ];
 
         let (data, min_height, more) = generate_voxels(
@@ -152,7 +134,7 @@ impl VoxelWorld for QuadTreeVoxelWorld {
 
         let chunk_transform_pos = Vec3::new(
             new_chunk_pos[0] as f32 * CHUNK_SIZE as f32 * VOXEL_SIZE,
-            0.0,
+            0., //chunk_height as f32 * CHUNK_SIZE as f32 * VOXEL_SIZE,
             new_chunk_pos[2] as f32 * CHUNK_SIZE as f32 * VOXEL_SIZE,
         );
 
@@ -162,7 +144,10 @@ impl VoxelWorld for QuadTreeVoxelWorld {
                 Some(mesh) => Some(ChunkTaskData {
                     transform: Transform::from_translation(chunk_transform_pos),
                     collider: if chunk_lod == ChunkLod::Full {
-                        Some(Collider::trimesh(mesh.1, mesh.2).expect("Failed to build trimesh"))
+                        Some(
+                            Collider::trimesh(mesh.1, mesh.2)
+                                .expect("Failed to build trimesh"),
+                        )
                     } else {
                         None
                     },
@@ -178,35 +163,5 @@ impl VoxelWorld for QuadTreeVoxelWorld {
             chunk_pos: IVec3::from_array(new_chunk_pos),
             min_height,
         };
-    }
-
-    fn has_chunk(&self, chunk_position: [i32; 2]) -> bool {
-        let map = self.chunk_trees.get(&chunk_position);
-        map.is_some()
-    }
-
-    fn add_chunk(
-        &mut self,
-        chunk_position: [i32; 2],
-        chunk: Option<QuadTreeNode<HashMap<i32, Entity>>>,
-    ) -> bool {
-        if self.has_chunk(chunk_position) {
-            return false;
-        }
-
-        self.chunk_trees.insert(chunk_position, Box::new(chunk));
-
-        true
-    }
-
-    fn remove_chunk(&mut self, chunk_position: [i32; 2]) -> bool {
-        self.chunk_trees.remove(&chunk_position).is_some()
-    }
-
-    fn get_chunk(
-        &mut self,
-        chunk_position: [i32; 2],
-    ) -> Option<&mut Box<Option<QuadTreeNode<HashMap<i32, Entity>>>>> {
-        self.chunk_trees.get_mut(&chunk_position)
     }
 }
