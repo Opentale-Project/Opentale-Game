@@ -1,4 +1,4 @@
-use crate::world_generation::{chunk_generation::BlockType, voxel_world::ChunkLod};
+use crate::world_generation::{chunk_generation::BlockType, chunk_lod::ChunkLod};
 use bevy::math::IVec2;
 use fastnoise_lite::FastNoiseLite;
 use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::Arc};

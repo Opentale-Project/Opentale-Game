@@ -8,7 +8,7 @@ use crate::world_generation::chunk_generation::voxel_data::VoxelData;
 use crate::world_generation::chunk_generation::{CHUNK_SIZE, VOXEL_SIZE};
 use crate::world_generation::chunk_loading::country_cache::{Path, PathLine};
 use crate::world_generation::generation_options::GenerationOptions;
-use crate::world_generation::voxel_world::ChunkLod;
+use crate::world_generation::chunk_lod::ChunkLod;
 use bevy::math::{DVec2, IVec2};
 use bevy::prelude::Vec2;
 use noise::NoiseFn;

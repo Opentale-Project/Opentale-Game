@@ -12,7 +12,7 @@ use crate::world_generation::{
         },
         VOXEL_SIZE,
     },
-    voxel_world::ChunkLod,
+    chunk_lod::ChunkLod,
 };
 
 pub trait TreeStructureGenerator {

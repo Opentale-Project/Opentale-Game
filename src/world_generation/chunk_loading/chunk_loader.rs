@@ -5,7 +5,7 @@ use crate::world_generation::chunk_loading::chunk_tree::{
     ChunkTree, ChunkTreePos,
 };
 use crate::world_generation::chunk_loading::lod_position::LodPosition;
-use crate::world_generation::voxel_world::{ChunkLod, MAX_LOD};
+use crate::world_generation::chunk_lod::{ChunkLod, MAX_LOD};
 use bevy::math::FloatPow;
 use bevy::prelude::*;
 

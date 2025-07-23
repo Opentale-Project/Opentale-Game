@@ -20,7 +20,7 @@ use crate::world_generation::{
         voxel_generation::get_terrain_noise,
     },
     generation_options::GenerationOptions,
-    voxel_world::ChunkLod,
+    chunk_lod::ChunkLod,
 };
 
 pub struct PathData {

@@ -6,7 +6,7 @@ use crate::world_generation::{
         chunk_pos::{AbsoluteChunkPos, RelativeChunkPos},
         chunk_tree::ChunkTreePos,
     },
-    voxel_world::ChunkLod,
+    chunk_lod::ChunkLod,
 };
 
 /// This struct represents a position inside a Quad-Tree
