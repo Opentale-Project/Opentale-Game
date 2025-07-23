@@ -26,6 +26,11 @@ impl AbsoluteChunkPos {
                 .as_ivec2(),
         )
     }
+
+    pub fn to_absolute(&self) -> Vec3 {
+        let self_absolute = self.as_vec2() * VOXEL_SIZE * CHUNK_SIZE as f32;
+        Vec3::new(self_absolute.x, 0, self_absolute.y)
+    }
 }
 
 impl From<IVec2> for AbsoluteChunkPos {

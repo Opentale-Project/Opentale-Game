@@ -1,8 +1,11 @@
 use bevy::math::IVec3;
 
-use super::{BlockType, CHUNK_SIZE};
+use crate::world_generation::chunk_generation::block_type::BlockType;
 
-pub type VoxelArray = [BlockType; (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)];
+use super::CHUNK_SIZE;
+
+pub type VoxelArray =
+    [BlockType; (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)];
 
 pub struct VoxelData {
     pub array: VoxelArray,
@@ -11,7 +14,8 @@ pub struct VoxelData {
 impl Default for VoxelData {
     fn default() -> Self {
         Self {
-            array: [BlockType::Air; (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)],
+            array: [BlockType::Air;
+                (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)],
         }
     }
 }
