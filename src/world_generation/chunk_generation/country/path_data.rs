@@ -19,7 +19,6 @@ use crate::world_generation::{
         noise::{
             full_cache::FullCache, lod_height_adjuster::LodHeightAdjuster,
         },
-        voxel_generation::get_terrain_noise,
     },
     generation_options::GenerationOptions,
 };
@@ -267,7 +266,7 @@ impl PathData {
         end_pos /= path_finding_lod.multiplier_i32();
 
         let terrain_noise = FullCache::new(LodHeightAdjuster::new(
-            get_terrain_noise(generation_options),
+            generation_options.get_terrain_noise(),
             path_finding_lod,
         ));
 

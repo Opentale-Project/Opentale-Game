@@ -22,13 +22,13 @@ impl Plugin for ChunkGenerationPlugin {
             .init_resource::<ChunkTriangles>()
             .init_resource::<ChunkTaskPool>()
             .init_resource::<CacheTaskPool>()
-            .init_resource::<GenerationOptionsResource>()
             .init_resource::<CountryCache>()
             .register_type::<ChunkTriangles>()
             .add_systems(
                 Update,
                 (
-                    queue_chunk_tasks,
+                    queue_chunk_tasks
+                        .run_if(resource_exists::<GenerationOptionsResource>),
                     set_generated_chunks,
                     set_generated_caches,
                 ),

@@ -11,8 +11,8 @@ use opentale::animation::animation_plugin::OpentaleAnimationPlugin;
 use opentale::debug_tools::debug_plugin::OpentaleDebugPlugin;
 use opentale::player::player_plugin::PlayerPlugin;
 use opentale::ui::game_ui_plugin::GameUiPlugin;
-use opentale::world_generation::WorldGenerationPlugin;
 use opentale::world_generation::array_texture::ArrayTextureMaterial;
+use opentale::world_generation::world_generation_plugin::WorldGenerationPlugin;
 use std::f32::consts::PI;
 
 fn main() {
@@ -21,7 +21,7 @@ fn main() {
             DefaultPlugins
                 .set(WindowPlugin {
                     primary_window: Some(Window {
-                        title: "Spellhaven".into(),
+                        title: "Opentale".into(),
                         present_mode: PresentMode::Immediate,
                         ..default()
                     }),

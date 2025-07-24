@@ -29,11 +29,11 @@ pub fn generate_voxels(
     let mut blocks = VoxelData::default();
 
     let terrain_noise = FullCache::new(LodHeightAdjuster::new(
-        get_terrain_noise(generation_options),
+        generation_options.get_terrain_noise(),
         chunk_lod,
     ));
     let terrain_steepness = FullCache::new(Steepness::new(FullCache::new(
-        get_terrain_noise(generation_options),
+        generation_options.get_terrain_noise(),
     )));
 
     let chunk_noise_offset =
@@ -315,14 +315,6 @@ pub fn generate_voxels(
     }
 
     (blocks, min_height, generate_more)
-}
-
-pub fn get_terrain_noise(
-    generation_options: &GenerationOptions,
-) -> impl NoiseFn<f64, 2> {
-    generation_options
-        .terrain_noise
-        .get_noise_fn(&mut StdRng::seed_from_u64(generation_options.seed + 1))
 }
 
 fn get_min_in_noise_map(

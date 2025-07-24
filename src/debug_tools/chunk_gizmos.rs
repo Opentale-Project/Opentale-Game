@@ -11,7 +11,6 @@ use crate::{
                 country_cache::{CountryCache, GenerationState},
                 country_cache_position::CountryPosition,
             },
-            voxel_generation::get_terrain_noise,
         },
         chunk_loading::chunk_pos::AbsoluteChunkPos,
         generation_options::GenerationOptionsResource,
@@ -36,7 +35,7 @@ pub fn draw_path_gizmos(
     }
 
     let terrain_noise =
-        Add::new(get_terrain_noise(&generation_options.0), Constant::new(5.));
+        Add::new(generation_options.0.get_terrain_noise(), Constant::new(5.));
 
     for player in &players {
         let player_chunk_pos =

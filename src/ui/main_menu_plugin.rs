@@ -7,8 +7,17 @@ use bevy_inspector_egui::{
 };
 
 use crate::{
-    ui::{main_menu_data::MainMenuData, main_menu_state::MainMenuState},
-    world_generation::generation_options::GenerationOptionsResource,
+    ui::{
+        initial_chunk_loader::{
+            remove_initial_chunk_loader, spawn_initial_chunk_loader,
+        },
+        main_menu_data::MainMenuData,
+        main_menu_state::{MainMenuState, hide_main_menu},
+    },
+    world_generation::{
+        generation_options::GenerationOptionsResource,
+        world_generation_state::WorldGenerationState,
+    },
 };
 
 #[derive(Default)]
@@ -21,8 +30,21 @@ impl Plugin for MainMenuPlugin {
             .add_systems(OnEnter(MainMenuState::Shown), add_menu_cam)
             .add_systems(OnEnter(MainMenuState::Hidden), remove_menu_cam)
             .add_systems(
+                OnEnter(MainMenuState::LoadingWorldGen),
+                spawn_initial_chunk_loader,
+            )
+            .add_systems(
+                OnExit(MainMenuState::LoadingWorldGen),
+                remove_initial_chunk_loader,
+            )
+            .add_systems(OnEnter(WorldGenerationState::Active), hide_main_menu)
+            .add_systems(
                 EguiPrimaryContextPass,
-                render_main_menu.run_if(in_state(MainMenuState::Shown)),
+                (
+                    render_main_menu.run_if(in_state(MainMenuState::Shown)),
+                    render_loading_screen
+                        .run_if(in_state(MainMenuState::LoadingWorldGen)),
+                ),
             );
     }
 }
@@ -46,7 +68,7 @@ fn remove_menu_cam(
 fn render_main_menu(
     mut menu_data: ResMut<MainMenuData>,
     mut menu_state: ResMut<NextState<MainMenuState>>,
-    mut gen_options: ResMut<GenerationOptionsResource>,
+    mut commands: Commands,
     mut contexts: EguiContexts,
 ) -> Result {
     egui::CentralPanel::default().show(contexts.ctx_mut()?, |ui| {
@@ -60,10 +82,22 @@ fn render_main_menu(
                 let seed = hasher.finish();
 
                 info!("Seed to use: {}", seed);
-                *gen_options = GenerationOptionsResource::from_seed(seed);
+                commands.insert_resource(GenerationOptionsResource::from_seed(
+                    seed,
+                ));
 
-                menu_state.set(MainMenuState::Hidden);
+                menu_state.set(MainMenuState::LoadingWorldGen);
             }
+        });
+    });
+
+    Ok(())
+}
+
+fn render_loading_screen(mut contexts: EguiContexts) -> Result {
+    egui::CentralPanel::default().show(contexts.ctx_mut()?, |ui| {
+        ui.vertical_centered(|ui| {
+            ui.heading("Loading");
         });
     });
 
