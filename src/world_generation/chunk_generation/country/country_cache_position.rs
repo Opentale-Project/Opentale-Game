@@ -5,7 +5,7 @@ use crate::world_generation::{
     chunk_loading::chunk_pos::AbsoluteChunkPos,
 };
 
-#[derive(Deref, DerefMut, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Deref, DerefMut, Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct CountryPosition(IVec2);
 
 impl CountryPosition {

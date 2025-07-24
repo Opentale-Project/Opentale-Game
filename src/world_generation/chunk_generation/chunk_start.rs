@@ -18,15 +18,15 @@ use crate::world_generation::{
 
 #[derive(Component)]
 pub struct ChunkStart {
-    chunk_lod_pos: LodPosition,
-    chunk_tree_pos: ChunkTreePos,
-    chunk_stack_offset: i32,
+    pub chunk_lod_pos: LodPosition,
+    pub chunk_tree_pos: ChunkTreePos,
+    pub chunk_stack_offset: i32,
 }
 
 pub fn queue_chunk_tasks(
     mut commands: Commands,
-    mut generation_options: ResMut<GenerationOptionsResource>,
     mut country_cache: ResMut<CountryCache>,
+    generation_options: Res<GenerationOptionsResource>,
     chunk_starts: Query<(&ChunkStart, Entity)>,
     chunk_tasks: Query<(), With<ChunkTask>>,
     chunk_task_pool: Res<ChunkTaskPool>,
@@ -56,25 +56,31 @@ pub fn queue_chunk_tasks(
         let Some(country_data) = country_cache.get_or_queue(
             &mut commands,
             country_pos,
-            cache_task_pool,
+            &cache_task_pool,
             &generation_options,
         ) else {
             continue;
         };
 
-        let entity = commands.entity(chunk_entity);
         currently_added_tasks += 1;
+        let generation_options = generation_options.0.clone();
+        let lod_pos = chunk_start.chunk_lod_pos;
+        let tree_pos = chunk_start.chunk_tree_pos;
+        let stack_height = chunk_start.chunk_stack_offset;
         let task = chunk_task_pool.task_pool.spawn(async move {
             generate_chunk(
-                chunk_start.chunk_lod_pos,
-                chunk_start.chunk_tree_pos,
-                chunk_start.chunk_stack_offset,
-                &generation_options.0,
+                lod_pos,
+                tree_pos,
+                stack_height,
+                &generation_options,
                 &country_data,
             )
         });
 
-        entity.remove::<ChunkStart>().insert(ChunkTask(task));
+        commands
+            .entity(chunk_entity)
+            .remove::<ChunkStart>()
+            .insert(ChunkTask(task));
     }
 }
 

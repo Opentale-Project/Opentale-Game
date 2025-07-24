@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 use crate::world_generation::{
     chunk_generation::country::{
-        country_cache::CountryCache, country_cache_position::CountryPosition,
+        country_cache::CacheStore, country_cache_position::CountryPosition,
         generation_cache::GenerationCacheItem, path_data::PathData,
         structure_data::StructureData,
     },
@@ -24,27 +24,28 @@ impl GenerationCacheItem<CountryPosition> for CountryData {
     fn generate(
         key: CountryPosition,
         generation_options: &GenerationOptions,
-        country_cache: &mut CountryCache,
+        cache_store: Arc<CacheStore>,
     ) -> Self {
         Self {
             country_pos: key,
-            structure_cache: generation_options
+            structure_cache: cache_store
+                .clone()
                 .structure_cache
-                .get_cache_entry(key, generation_options, country_cache),
-            this_path_cache: generation_options.path_cache.get_cache_entry(
+                .get_cache_entry(key, generation_options, cache_store.clone()),
+            this_path_cache: cache_store.clone().path_cache.get_cache_entry(
                 key,
                 generation_options,
-                country_cache,
+                cache_store.clone(),
             ),
-            bottom_path_cache: generation_options.path_cache.get_cache_entry(
-                *key + IVec2::NEG_X,
+            bottom_path_cache: cache_store.clone().path_cache.get_cache_entry(
+                CountryPosition::new(*key + IVec2::NEG_X),
                 generation_options,
-                country_cache,
+                cache_store.clone(),
             ),
-            left_path_cache: generation_options.path_cache.get_cache_entry(
-                *key + IVec2::NEG_Y,
+            left_path_cache: cache_store.clone().path_cache.get_cache_entry(
+                CountryPosition::new(*key + IVec2::NEG_Y),
                 generation_options,
-                country_cache,
+                cache_store.clone(),
             ),
         }
     }

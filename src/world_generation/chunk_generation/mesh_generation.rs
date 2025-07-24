@@ -1,7 +1,7 @@
 use crate::world_generation::array_texture::ATTRIBUTE_TEXTURE_ID;
+use crate::world_generation::chunk_generation::chunk_lod::ChunkLod;
 use crate::world_generation::chunk_generation::voxel_data::VoxelData;
 use crate::world_generation::chunk_generation::{CHUNK_SIZE, VOXEL_SIZE};
-use crate::world_generation::chunk_lod::ChunkLod;
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
 use bevy::render::render_asset::RenderAssetUsages;

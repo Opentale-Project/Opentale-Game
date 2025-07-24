@@ -1,20 +1,15 @@
-use crate::world_generation::{
-    chunk_generation::{
-        block_type::BlockType,
-        country::generation_cache::GenerationCache,
-        noise::terrain_noise::{TERRAIN_NOISE_FILE_PATH, TerrainNoise},
-        structures::{
-            oak_structure_generator::OakStructureGenerator,
-            structure_generator::{
-                FixedStructureGenerator, StructureGenerator,
-                VoxelStructureMetadata,
-            },
-            tree_structure_generator::TreeStructureGenerator,
+use crate::world_generation::chunk_generation::{
+    block_type::BlockType,
+    noise::terrain_noise::{TERRAIN_NOISE_FILE_PATH, TerrainNoise},
+    structures::{
+        oak_structure_generator::OakStructureGenerator,
+        structure_generator::{
+            FixedStructureGenerator, StructureGenerator, VoxelStructureMetadata,
         },
+        tree_structure_generator::TreeStructureGenerator,
     },
-    chunk_loading::country_cache::{CountryCache, PathCache, StructureCache},
 };
-use bevy::prelude::{IVec2, Resource};
+use bevy::prelude::*;
 use fastnoise_lite::FastNoiseLite;
 use rand::prelude::StdRng;
 use rand::{Rng, SeedableRng};
@@ -47,8 +42,6 @@ impl GenerationOptionsResource {
             seed,
             terrain_noise,
             generate_paths: false,
-            path_cache: GenerationCache::new(),
-            structure_cache: GenerationCache::new(),
             structure_generators: vec![
                 Arc::new(Box::new(OakStructureGenerator::new(
                     VoxelStructureMetadata {
@@ -117,8 +110,6 @@ pub struct GenerationOptions {
     pub structure_generators:
         Vec<Arc<Box<dyn StructureGenerator + Send + Sync>>>,
     pub structure_assets: Vec<StructureAsset>,
-    pub path_cache: GenerationCache<IVec2, PathCache>,
-    pub structure_cache: GenerationCache<IVec2, StructureCache>,
     pub generate_paths: bool,
     pub terrain_noise: TerrainNoise,
 }

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::world_generation::chunk_generation::ChunkTriangles;
+use crate::world_generation::chunk_generation::chunk_triangles::ChunkTriangles;
 
 #[derive(Component)]
 pub struct TriangleText;

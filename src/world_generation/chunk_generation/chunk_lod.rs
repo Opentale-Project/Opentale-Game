@@ -1,17 +1,3 @@
-use crate::world_generation::chunk_generation::mesh_generation::generate_mesh;
-use crate::world_generation::chunk_generation::voxel_generation::generate_voxels;
-use crate::world_generation::chunk_generation::{
-    CHUNK_SIZE, ChunkTaskData, VOXEL_SIZE,
-};
-use crate::world_generation::chunk_loading::country_cache::CountryCache;
-use crate::world_generation::generation_options::GenerationOptions;
-use bevy::math::{IVec3, Vec3};
-use bevy::prelude::{IVec2, Resource, Transform};
-use bevy_rapier3d::prelude::Collider;
-use std::sync::Arc;
-
-use super::chunk_generation::voxel_data::VoxelData;
-
 pub const MAX_LOD: ChunkLod = ChunkLod::OneTwentyEight;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]

@@ -1,5 +1,6 @@
 use std::{
     collections::{BinaryHeap, HashMap},
+    sync::Arc,
     time::Instant,
 };
 
@@ -8,9 +9,10 @@ use noise::NoiseFn;
 
 use crate::world_generation::{
     chunk_generation::{
+        chunk_lod::ChunkLod,
         country::{
             a_star_candidate::AStarCandidate,
-            country_cache::{COUNTRY_SIZE, CountryCache},
+            country_cache::{COUNTRY_SIZE, CacheStore},
             country_cache_position::CountryPosition,
             generation_cache::GenerationCacheItem,
         },
@@ -20,9 +22,9 @@ use crate::world_generation::{
         voxel_generation::get_terrain_noise,
     },
     generation_options::GenerationOptions,
-    chunk_lod::ChunkLod,
 };
 
+#[derive(Default)]
 pub struct PathData {
     pub paths: Vec<Path>,
 }
@@ -204,29 +206,30 @@ impl GenerationCacheItem<CountryPosition> for PathData {
     fn generate(
         key: CountryPosition,
         generation_options: &GenerationOptions,
-        country_cache: &mut CountryCache,
+        cache_store: Arc<CacheStore>,
     ) -> Self {
         if !generation_options.generate_paths {
             return Self { paths: vec![] };
         }
 
-        let top_country_pos = *key + IVec2::X;
-        let right_country_pos = *key + IVec2::Y;
+        let top_country_pos = CountryPosition::new(*key + IVec2::X);
+        let right_country_pos = CountryPosition::new(*key + IVec2::Y);
 
-        let current_structure_cache = generation_options
+        let current_structure_cache = cache_store
+            .clone()
             .structure_cache
-            .get_cache_entry(key, generation_options, country_cache);
+            .get_cache_entry(key, generation_options, cache_store.clone());
         let top_structure_cache =
-            generation_options.structure_cache.get_cache_entry(
+            cache_store.clone().structure_cache.get_cache_entry(
                 top_country_pos,
                 generation_options,
-                country_cache,
+                cache_store.clone(),
             );
         let right_structure_cache =
-            generation_options.structure_cache.get_cache_entry(
+            cache_store.clone().structure_cache.get_cache_entry(
                 right_country_pos,
                 generation_options,
-                country_cache,
+                cache_store.clone(),
             );
 
         let path_finding_lod = ChunkLod::Sixteenth;
@@ -236,14 +239,14 @@ impl GenerationCacheItem<CountryPosition> for PathData {
                 PathData::generate_path(
                     current_structure_cache.city_location,
                     top_structure_cache.city_location,
-                    [*key, top_country_pos],
+                    [*key, *top_country_pos],
                     path_finding_lod,
                     generation_options,
                 ),
                 PathData::generate_path(
                     current_structure_cache.city_location,
                     right_structure_cache.city_location,
-                    [*key, right_country_pos],
+                    [*key, *right_country_pos],
                     path_finding_lod,
                     generation_options,
                 ),

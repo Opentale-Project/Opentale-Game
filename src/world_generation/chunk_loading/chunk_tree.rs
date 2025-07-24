@@ -1,9 +1,8 @@
 use bevy::prelude::*;
 
 use crate::world_generation::{
-    chunk_generation::{CHUNK_SIZE, VOXEL_SIZE},
+    chunk_generation::{CHUNK_SIZE, VOXEL_SIZE, chunk_lod::MAX_LOD},
     chunk_loading::{chunk_node::ChunkNode, lod_position::LodPosition},
-    chunk_lod::MAX_LOD,
 };
 
 /// Relative position of a Chunk Tree

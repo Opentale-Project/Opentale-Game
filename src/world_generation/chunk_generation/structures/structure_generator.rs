@@ -1,7 +1,10 @@
-use crate::world_generation::{chunk_generation::BlockType, chunk_lod::ChunkLod};
 use bevy::math::IVec2;
 use fastnoise_lite::FastNoiseLite;
 use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::Arc};
+
+use crate::world_generation::chunk_generation::{
+    block_type::BlockType, chunk_lod::ChunkLod,
+};
 
 pub struct VoxelStructureMetadata {
     pub model_size: [i32; 3],
@@ -31,7 +34,11 @@ impl StructureGenerator for FixedStructureGenerator {
         &self.fixed_structure_metadata
     }
 
-    fn get_structure_model(&self, _: IVec2, _: ChunkLod) -> Rc<Vec<Vec<Vec<BlockType>>>> {
+    fn get_structure_model(
+        &self,
+        _: IVec2,
+        _: ChunkLod,
+    ) -> Rc<Vec<Vec<Vec<BlockType>>>> {
         Rc::new(self.fixed_structure_model.to_vec())
     }
 }
@@ -42,7 +49,9 @@ pub struct StructureGeneratorCache {
 }
 
 impl StructureGeneratorCache {
-    pub fn new(structure_generator: &Arc<Box<dyn StructureGenerator + Send + Sync>>) -> Self {
+    pub fn new(
+        structure_generator: &Arc<Box<dyn StructureGenerator + Send + Sync>>,
+    ) -> Self {
         Self {
             structure_generator: structure_generator.clone(),
             cache: RefCell::new(HashMap::new()),

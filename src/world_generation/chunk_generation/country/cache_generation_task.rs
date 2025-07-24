@@ -28,7 +28,7 @@ impl Default for CacheTaskPool {
     }
 }
 
-fn set_generated_caches(
+pub fn set_generated_caches(
     mut commands: Commands,
     mut chunks: Query<(Entity, &mut CacheGenerationTask)>,
     mut country_cache: ResMut<CountryCache>,

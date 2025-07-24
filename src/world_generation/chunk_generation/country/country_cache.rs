@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use crate::world_generation::{
     chunk_generation::country::{
@@ -15,9 +15,14 @@ use crate::world_generation::{
 
 pub const COUNTRY_SIZE: usize = 2usize.pow(15);
 
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub struct CountryCache {
     pub country_cache: HashMap<CountryPosition, GenerationState<CountryData>>,
+    pub cache_store: Arc<CacheStore>,
+}
+
+#[derive(Default)]
+pub struct CacheStore {
     pub path_cache: GenerationCache<CountryPosition, PathData>,
     pub structure_cache: GenerationCache<CountryPosition, StructureData>,
 }
@@ -32,16 +37,18 @@ impl CountryCache {
         &mut self,
         commands: &mut Commands,
         country_pos: CountryPosition,
-        cache_task_pool: Res<CacheTaskPool>,
+        cache_task_pool: &CacheTaskPool,
         generation_options: &GenerationOptionsResource,
     ) -> Option<CountryData> {
         let Some(country_data) = self.country_cache.get(&country_pos) else {
+            let cache_store = self.cache_store.clone();
+            let generation_options = generation_options.0.clone();
             commands.spawn(CacheGenerationTask(
                 cache_task_pool.task_pool.spawn(async move {
                     CountryData::generate(
                         country_pos,
-                        &generation_options.0,
-                        self,
+                        &generation_options,
+                        cache_store,
                     )
                 }),
             ));

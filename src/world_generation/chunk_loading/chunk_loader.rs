@@ -1,3 +1,4 @@
+use crate::world_generation::chunk_generation::chunk_lod::{ChunkLod, MAX_LOD};
 use crate::world_generation::chunk_generation::{CHUNK_SIZE, VOXEL_SIZE};
 use crate::world_generation::chunk_loading::chunk_load_cache::ChunkLoadCache;
 use crate::world_generation::chunk_loading::chunk_pos::AbsoluteChunkPos;
@@ -5,7 +6,6 @@ use crate::world_generation::chunk_loading::chunk_tree::{
     ChunkTree, ChunkTreePos,
 };
 use crate::world_generation::chunk_loading::lod_position::LodPosition;
-use crate::world_generation::chunk_lod::{ChunkLod, MAX_LOD};
 use bevy::math::FloatPow;
 use bevy::prelude::*;
 

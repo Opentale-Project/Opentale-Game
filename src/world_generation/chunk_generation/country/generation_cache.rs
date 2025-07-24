@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::world_generation::{
-    chunk_generation::country::country_cache::CountryCache,
+    chunk_generation::country::country_cache::CacheStore,
     generation_options::GenerationOptions,
 };
 
@@ -14,10 +14,11 @@ pub trait GenerationCacheItem<K: Copy + Eq + Hash> {
     fn generate(
         key: K,
         generation_options: &GenerationOptions,
-        country_cache: &mut CountryCache,
+        cache_store: Arc<CacheStore>,
     ) -> Self;
 }
 
+#[derive(Default)]
 pub struct GenerationCache<K: Copy + Eq + Hash, T: GenerationCacheItem<K>> {
     cache_lock: RwLock<HashMap<K, Arc<RwLock<Option<Arc<T>>>>>>,
 }
@@ -33,13 +34,13 @@ impl<K: Copy + Eq + Hash, T: GenerationCacheItem<K>> GenerationCache<K, T> {
         &self,
         key: K,
         generation_options: &GenerationOptions,
-        country_cache: &mut CountryCache,
+        cache_store: Arc<CacheStore>,
     ) -> Arc<T> {
         self.get_generated_cache_entry(
             self.get_hash_lock_entry(key),
             key,
             generation_options,
-            country_cache,
+            cache_store,
         )
     }
 
@@ -85,7 +86,7 @@ impl<K: Copy + Eq + Hash, T: GenerationCacheItem<K>> GenerationCache<K, T> {
         hash_lock_entry: Arc<RwLock<Option<Arc<T>>>>,
         key: K,
         generation_options: &GenerationOptions,
-        country_cache: &mut CountryCache,
+        cache_store: Arc<CacheStore>,
     ) -> Arc<T> {
         let read = hash_lock_entry.read().unwrap();
         match read.deref() {
@@ -97,7 +98,7 @@ impl<K: Copy + Eq + Hash, T: GenerationCacheItem<K>> GenerationCache<K, T> {
                         .insert(Arc::new(T::generate(
                             key,
                             generation_options,
-                            country_cache,
+                            cache_store,
                         )))
                         .clone(),
                     Some(country_cache) => country_cache.clone(),

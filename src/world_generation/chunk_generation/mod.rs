@@ -13,6 +13,5 @@ pub mod structures;
 pub mod voxel_data;
 pub mod voxel_generation;
 
-//pub const LEVEL_OF_DETAIL: i32 = 1;
 pub const CHUNK_SIZE: usize = 64;
 pub const VOXEL_SIZE: f32 = 1.0;

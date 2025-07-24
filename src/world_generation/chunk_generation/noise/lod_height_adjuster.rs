@@ -1,6 +1,6 @@
 use noise::{NoiseFn, Seedable};
 
-use crate::world_generation::chunk_lod::ChunkLod;
+use crate::world_generation::chunk_generation::chunk_lod::ChunkLod;
 
 pub struct LodHeightAdjuster<T> {
     noise: T,
