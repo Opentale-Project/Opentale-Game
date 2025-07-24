@@ -1,11 +1,14 @@
 use crate::utils::div_floor::div_floor;
+use crate::world_generation::chunk_generation::block_type::BlockType;
+use crate::world_generation::chunk_generation::chunk_lod::ChunkLod;
+use crate::world_generation::chunk_generation::country::country_data::CountryData;
+use crate::world_generation::chunk_generation::country::path_data::{Path, PathLine};
 use crate::world_generation::chunk_generation::structures::structure_generator::{
     StructureGenerator, StructureGeneratorCache,
 };
-use crate::world_generation::chunk_generation::{BlockType, CHUNK_SIZE, VOXEL_SIZE};
-use crate::world_generation::chunk_loading::country_cache::{CountryCache, Path, PathLine};
+use crate::world_generation::chunk_generation::voxel_data::VoxelData;
+use crate::world_generation::chunk_generation::{CHUNK_SIZE, VOXEL_SIZE};
 use crate::world_generation::generation_options::GenerationOptions;
-use crate::world_generation::voxel_world::ChunkLod;
 use bevy::math::{DVec2, IVec2};
 use bevy::prelude::Vec2;
 use noise::NoiseFn;
@@ -16,13 +19,12 @@ use std::usize;
 use super::noise::full_cache::FullCache;
 use super::noise::lod_height_adjuster::LodHeightAdjuster;
 use super::noise::steepness::Steepness;
-use super::voxel_types::VoxelData;
 
 pub fn generate_voxels(
     position: [i32; 3],
     generation_options: &GenerationOptions,
     chunk_lod: ChunkLod,
-    country_cache: &CountryCache,
+    country_data: &CountryData,
 ) -> (VoxelData, i32, bool) {
     let mut blocks = VoxelData::default();
 
@@ -30,35 +32,42 @@ pub fn generate_voxels(
         get_terrain_noise(generation_options),
         chunk_lod,
     ));
-    let terrain_steepness = FullCache::new(Steepness::new(FullCache::new(get_terrain_noise(
-        generation_options,
-    ))));
+    let terrain_steepness = FullCache::new(Steepness::new(FullCache::new(
+        get_terrain_noise(generation_options),
+    )));
 
-    let chunk_noise_offset = DVec2::new(position[0] as f64, position[2] as f64) * CHUNK_SIZE as f64;
+    let chunk_noise_offset =
+        DVec2::new(position[0] as f64, position[2] as f64) * CHUNK_SIZE as f64;
 
-    let min_height = (get_min_in_noise_map(&terrain_noise, chunk_noise_offset, chunk_lod) as i32)
-        - 2
-        + position[1] * CHUNK_SIZE as i32
-        - 10 / chunk_lod.multiplier_i32();
+    let min_height =
+        (get_min_in_noise_map(&terrain_noise, chunk_noise_offset, chunk_lod)
+            as i32)
+            - 2
+            + position[1] * CHUNK_SIZE as i32
+            - 10 / chunk_lod.multiplier_i32();
 
     let mut generate_more: bool = false;
 
     let all_paths = vec![
-        &country_cache.this_path_cache.paths,
-        &country_cache.bottom_path_cache.paths,
-        &country_cache.left_path_cache.paths,
+        &country_data.this_path_cache.paths,
+        &country_data.bottom_path_cache.paths,
+        &country_data.left_path_cache.paths,
     ];
 
     let structure_generators: Vec<StructureGeneratorCache> = generation_options
         .structure_generators
         .iter()
-        .map(|structure_generator| StructureGeneratorCache::new(structure_generator))
+        .map(|structure_generator| {
+            StructureGeneratorCache::new(structure_generator)
+        })
         .collect();
 
     for x in 0..CHUNK_SIZE + 2 {
         for z in 0..CHUNK_SIZE + 2 {
-            let total_x = position[0] * CHUNK_SIZE as i32 + x as i32 * chunk_lod.multiplier_i32();
-            let total_z = position[2] * CHUNK_SIZE as i32 + z as i32 * chunk_lod.multiplier_i32();
+            let total_x = position[0] * CHUNK_SIZE as i32
+                + x as i32 * chunk_lod.multiplier_i32();
+            let total_z = position[2] * CHUNK_SIZE as i32
+                + z as i32 * chunk_lod.multiplier_i32();
 
             let noise_position = [total_x as f64, total_z as f64];
 
@@ -69,7 +78,8 @@ pub fn generate_voxels(
 
             let mut noise_height = terrain_noise.get(noise_position) as f32;
 
-            let is_snow = noise_height * chunk_lod.multiplier_f32() > 3500. / VOXEL_SIZE;
+            let is_snow =
+                noise_height * chunk_lod.multiplier_f32() > 3500. / VOXEL_SIZE;
             let is_grass_steep = if is_snow {
                 steepness < 1.2
             } else {
@@ -77,25 +87,33 @@ pub fn generate_voxels(
             };
 
             let (mut path_distance, closest_point_on_path, _, line) =
-                get_min_distance_to_path(IVec2::new(total_x, total_z), &all_paths, IVec2::ONE * 15);
+                get_min_distance_to_path(
+                    IVec2::new(total_x, total_z),
+                    &all_paths,
+                    IVec2::ONE * 15,
+                );
             let is_path = path_distance <= 8.75;
 
             path_distance /= 10.;
 
             if path_distance <= 1.65 {
-                let path_start_height =
-                    terrain_noise.get(line.unwrap().start.as_dvec2().to_array()) as f32;
-                let path_end_height =
-                    terrain_noise.get(line.unwrap().end.as_dvec2().to_array()) as f32;
+                let path_start_height = terrain_noise
+                    .get(line.unwrap().start.as_dvec2().to_array())
+                    as f32;
+                let path_end_height = terrain_noise
+                    .get(line.unwrap().end.as_dvec2().to_array())
+                    as f32;
                 let path_height = lerp(
                     path_start_height,
                     path_end_height,
                     line.unwrap().get_progress_on_line(closest_point_on_path),
                 );
 
+                let closest_point_height = terrain_noise
+                    .get(closest_point_on_path.as_dvec2().to_array())
+                    as f32;
                 let closest_point_height =
-                    terrain_noise.get(closest_point_on_path.as_dvec2().to_array()) as f32;
-                let closest_point_height = lerp(closest_point_height, noise_height, 0.5);
+                    lerp(closest_point_height, noise_height, 0.5);
 
                 let path_height = lerp(closest_point_height, path_height, 0.5);
 
@@ -107,8 +125,9 @@ pub fn generate_voxels(
                 .max(noise_height - 10.);
             }
 
-            for y in
-                min_height..noise_height.min((CHUNK_SIZE as i32 + 2 + min_height) as f32) as i32
+            for y in min_height
+                ..noise_height.min((CHUNK_SIZE as i32 + 2 + min_height) as f32)
+                    as i32
             {
                 if y == CHUNK_SIZE as i32 + 1 + min_height {
                     generate_more = true;
@@ -119,7 +138,9 @@ pub fn generate_voxels(
                     if is_path {
                         BlockType::Path
                     } else {
-                        if is_grass_steep && y + 1 == noise_height.floor() as i32 {
+                        if is_grass_steep
+                            && y + 1 == noise_height.floor() as i32
+                        {
                             if is_snow {
                                 BlockType::Snow
                             } else {
@@ -133,7 +154,8 @@ pub fn generate_voxels(
             }
 
             for structure_generator in &structure_generators {
-                let structure_metadata = structure_generator.get_structure_metadata();
+                let structure_metadata =
+                    structure_generator.get_structure_metadata();
                 let structure_offset_x = div_floor(
                     total_x + structure_metadata.grid_offset[0],
                     structure_metadata.generation_size[0],
@@ -142,20 +164,26 @@ pub fn generate_voxels(
                     total_z + structure_metadata.grid_offset[1],
                     structure_metadata.generation_size[1],
                 );
-                let structure_value = structure_metadata
-                    .noise
-                    .get_noise_2d(structure_offset_x as f32, structure_offset_z as f32)
-                    * 0.5
+                let structure_value = structure_metadata.noise.get_noise_2d(
+                    structure_offset_x as f32,
+                    structure_offset_z as f32,
+                ) * 0.5
                     + 0.5;
                 if structure_metadata.generate_debug_blocks {
-                    let top_terrain = (noise_height.min(CHUNK_SIZE as f32 + min_height as f32)
+                    let top_terrain = (noise_height
+                        .min(CHUNK_SIZE as f32 + min_height as f32)
                         as i32
                         - min_height.min(noise_height as i32))
                     .max(1) as usize
                         - 1;
-                    blocks.set_block([x as i32, top_terrain as i32, z as i32], BlockType::Stone);
+                    blocks.set_block(
+                        [x as i32, top_terrain as i32, z as i32],
+                        BlockType::Stone,
+                    );
                 }
-                let mut rand = StdRng::seed_from_u64((structure_value.abs() * 10000.) as u64);
+                let mut rand = StdRng::seed_from_u64(
+                    (structure_value.abs() * 10000.) as u64,
+                );
 
                 if structure_value > 0. {
                     let random_x = rand.random_range(
@@ -167,12 +195,16 @@ pub fn generate_voxels(
                             - structure_metadata.model_size[2],
                     );
 
-                    let structure_x: i32 = (total_x + structure_metadata.grid_offset[0]
-                        - structure_offset_x * structure_metadata.generation_size[0])
+                    let structure_x: i32 = (total_x
+                        + structure_metadata.grid_offset[0]
+                        - structure_offset_x
+                            * structure_metadata.generation_size[0])
                         .abs()
                         - random_x;
-                    let structure_z: i32 = (total_z + structure_metadata.grid_offset[1]
-                        - structure_offset_z * structure_metadata.generation_size[1])
+                    let structure_z: i32 = (total_z
+                        + structure_metadata.grid_offset[1]
+                        - structure_offset_z
+                            * structure_metadata.generation_size[1])
                         .abs()
                         - random_z;
 
@@ -205,7 +237,8 @@ pub fn generate_voxels(
                     }
 
                     let structure_center: IVec2 =
-                        [structure_noise_height_x, structure_noise_height_z].into();
+                        [structure_noise_height_x, structure_noise_height_z]
+                            .into();
 
                     let (a, _, _, _) = get_min_distance_to_path(
                         structure_center,
@@ -228,28 +261,35 @@ pub fn generate_voxels(
                         structure_noise_height_z as f64,
                     ]);
 
-                    for (index, sub_structure) in structure_generator.get_structure_model(
-                        IVec2 {
-                            x: structure_offset_x,
-                            y: structure_offset_z,
-                        },
-                        chunk_lod,
-                    )[structure_x as usize]
+                    for (index, sub_structure) in structure_generator
+                        .get_structure_model(
+                            IVec2 {
+                                x: structure_offset_x,
+                                y: structure_offset_z,
+                            },
+                            chunk_lod,
+                        )[structure_x as usize]
                         .iter()
                         .enumerate()
                     {
                         if (index as i32
-                            + (noise_height * chunk_lod.multiplier_i32() as f64) as i32)
+                            + (noise_height * chunk_lod.multiplier_i32() as f64)
+                                as i32)
                             % chunk_lod.multiplier_i32()
                             != 0
                         {
                             continue;
                         }
-                        let chunk_index = index / chunk_lod.multiplier_i32() as usize;
-                        if (noise_height as i32 - min_height + chunk_index as i32) < 0 {
+                        let chunk_index =
+                            index / chunk_lod.multiplier_i32() as usize;
+                        if (noise_height as i32 - min_height
+                            + chunk_index as i32)
+                            < 0
+                        {
                             continue;
                         }
-                        let structure_block = sub_structure[structure_z as usize];
+                        let structure_block =
+                            sub_structure[structure_z as usize];
                         if structure_block == BlockType::Air {
                             continue;
                         }
@@ -262,7 +302,8 @@ pub fn generate_voxels(
                         blocks.set_block(
                             [
                                 x as i32,
-                                noise_height as i32 + chunk_index as i32 - min_height as i32,
+                                noise_height as i32 + chunk_index as i32
+                                    - min_height as i32,
                                 z as i32,
                             ],
                             structure_block,
@@ -276,37 +317,12 @@ pub fn generate_voxels(
     (blocks, min_height, generate_more)
 }
 
-pub fn get_terrain_noise(generation_options: &GenerationOptions) -> impl NoiseFn<f64, 2> {
+pub fn get_terrain_noise(
+    generation_options: &GenerationOptions,
+) -> impl NoiseFn<f64, 2> {
     generation_options
         .terrain_noise
         .get_noise_fn(&mut StdRng::seed_from_u64(generation_options.seed + 1))
-}
-
-pub fn get_noise_map<const SIZE: usize, T: From<i32>, F: NoiseFn<T, 2>>(
-    position: IVec2,
-    zoom_multiplier: i32,
-    noise_fn: &F,
-    array: &mut [[f32; SIZE]; SIZE],
-) {
-    for x in 0..SIZE {
-        for z in 0..SIZE {
-            let total = position + IVec2::new(x as i32, z as i32) * zoom_multiplier;
-            array[x][z] = noise_fn.get([total.x.into(), total.y.into()]) as f32;
-        }
-    }
-}
-
-pub fn get_steepness_map<const SIZE: usize, const SIZE2: usize>(
-    array: &mut [[f32; SIZE]; SIZE],
-    noise_map: &[[f32; SIZE2]; SIZE2],
-) {
-    for x in 0..SIZE {
-        for z in 0..SIZE {
-            let steepness_x = ((noise_map[x][z + 1] - noise_map[x + 2][z + 1]) / 2.).abs();
-            let steepness_z = ((noise_map[x + 1][z] - noise_map[x + 1][z + 2]) / 2.).abs();
-            array[x][z] = (steepness_x + steepness_z) / 2.;
-        }
-    }
 }
 
 fn get_min_in_noise_map(

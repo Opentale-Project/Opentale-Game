@@ -1,14 +1,14 @@
 use rand::rngs::StdRng;
 
-use crate::world_generation::{
-    chunk_generation::{
-        BlockType, 
-        structures::{
-            foliage_generation::{pine_l_system::PineLSystem, tree_l_system::LSystem},
-            structure_generator::VoxelStructureMetadata,
-            tree_structure_generator::TreeStructureGenerator,
+use crate::world_generation::chunk_generation::{
+    VOXEL_SIZE,
+    block_type::BlockType,
+    structures::{
+        foliage_generation::{
+            pine_l_system::PineLSystem, tree_l_system::LSystem,
         },
-        VOXEL_SIZE,
+        structure_generator::VoxelStructureMetadata,
+        tree_structure_generator::TreeStructureGenerator,
     },
 };
 
@@ -33,6 +33,10 @@ impl TreeStructureGenerator for PineStructureGenerator {
     }
 
     fn grow(&self, rng: &mut StdRng) -> Vec<Vec<Vec<BlockType>>> {
-        PineLSystem::grow_new::<PINE_VOXEL_SIZE, PINE_VOXEL_HEIGHT, PINE_VOXEL_SIZE>(rng)
+        PineLSystem::grow_new::<
+            PINE_VOXEL_SIZE,
+            PINE_VOXEL_HEIGHT,
+            PINE_VOXEL_SIZE,
+        >(rng)
     }
 }

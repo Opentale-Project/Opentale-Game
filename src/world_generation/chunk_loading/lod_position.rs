@@ -1,12 +1,11 @@
 use bevy::math::{IVec2, Vec2};
 
 use crate::world_generation::{
-    chunk_generation::{CHUNK_SIZE, VOXEL_SIZE},
+    chunk_generation::{CHUNK_SIZE, VOXEL_SIZE, chunk_lod::ChunkLod},
     chunk_loading::{
         chunk_pos::{AbsoluteChunkPos, RelativeChunkPos},
         chunk_tree::ChunkTreePos,
     },
-    voxel_world::ChunkLod,
 };
 
 /// This struct represents a position inside a Quad-Tree

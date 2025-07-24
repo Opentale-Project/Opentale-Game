@@ -1,18 +1,15 @@
 use std::rc::Rc;
 
 use bevy::math::IVec2;
-use rand::{rngs::StdRng, SeedableRng};
+use rand::{SeedableRng, rngs::StdRng};
 
-use crate::world_generation::{
-    chunk_generation::{
-        BlockType, 
-        structures::structure_generator::{
-            StructureGenerator, 
-            VoxelStructureMetadata
-        },
-        VOXEL_SIZE,
+use crate::world_generation::chunk_generation::{
+    VOXEL_SIZE,
+    block_type::BlockType,
+    chunk_lod::ChunkLod,
+    structures::structure_generator::{
+        StructureGenerator, VoxelStructureMetadata,
     },
-    voxel_world::ChunkLod,
 };
 
 pub trait TreeStructureGenerator {
@@ -53,13 +50,13 @@ impl<T: TreeStructureGenerator> StructureGenerator for T {
         structure_position: IVec2,
         _: ChunkLod,
     ) -> Rc<Vec<Vec<Vec<BlockType>>>> {
-        let noise_value = self
-            .get_structure_metadata()
-            .noise
-            .get_noise_2d(structure_position.x as f32, structure_position.y as f32)
-            * 0.5
+        let noise_value = self.get_structure_metadata().noise.get_noise_2d(
+            structure_position.x as f32,
+            structure_position.y as f32,
+        ) * 0.5
             + 0.5;
-        let mut rng = StdRng::seed_from_u64((noise_value.abs() * 10000.) as u64);
+        let mut rng =
+            StdRng::seed_from_u64((noise_value.abs() * 10000.) as u64);
 
         let voxel_grid = Self::grow(&self, &mut rng);
 

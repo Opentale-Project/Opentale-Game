@@ -1,14 +1,12 @@
 use std::ops::Range;
 
 use bevy::math::Vec3;
-use rand::{rngs::StdRng, Rng};
+use rand::{Rng, rngs::StdRng};
 
-use crate::world_generation::{
-    chunk_generation::{
-        BlockType, 
-        structures::foliage_generation::tree_l_system::{LSystem, LSystemEntry},
-        VOXEL_SIZE
-    },
+use crate::world_generation::chunk_generation::{
+    VOXEL_SIZE,
+    block_type::BlockType,
+    structures::foliage_generation::tree_l_system::{LSystem, LSystemEntry},
 };
 
 pub struct OakLSystem;
@@ -22,8 +20,8 @@ pub enum OakEntryType {
 
 impl LSystem<OakEntryType> for OakLSystem {
     fn get_start_state(
-        position: Vec3, 
-        rng: &mut StdRng
+        position: Vec3,
+        rng: &mut StdRng,
     ) -> Vec<LSystemEntry<OakEntryType>> {
         Self::create_straight_piece(
             &position,
@@ -40,8 +38,8 @@ impl LSystem<OakEntryType> for OakLSystem {
     }
 
     fn process_tree(
-        mut start_state: &mut Vec<LSystemEntry<OakEntryType>>, 
-        rng: &mut StdRng
+        mut start_state: &mut Vec<LSystemEntry<OakEntryType>>,
+        rng: &mut StdRng,
     ) {
         for _ in 0..3 {
             Self::recurse_l_system(&mut start_state, rng);
@@ -66,7 +64,8 @@ impl LSystem<OakEntryType> for OakLSystem {
             let new_thickness = (entry.thickness - 0.5).max(0.75);
 
             for _ in 0..6 {
-                let new_length = (rng.random_range(3.5..5.5) / VOXEL_SIZE) as usize;
+                let new_length =
+                    (rng.random_range(3.5..5.5) / VOXEL_SIZE) as usize;
 
                 branches.extend(Self::create_straight_piece(
                     &entry.pos,
@@ -87,7 +86,7 @@ impl OakLSystem {
         let mut i = 0usize;
         while i < data.len() {
             let entry = &data[i];
-            if let OakEntryType::Branch {..} = entry.entry_type {
+            if let OakEntryType::Branch { .. } = entry.entry_type {
                 let branches = vec![LSystemEntry {
                     pos: entry.pos,
                     entry_type: OakEntryType::Leaf,

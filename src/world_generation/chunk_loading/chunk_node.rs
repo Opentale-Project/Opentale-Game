@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use itertools::Itertools;
 
 use crate::world_generation::{
-    chunk_generation::{Chunk, ChunkTaskGenerator},
+    chunk_generation::{chunk::Chunk, chunk_start::ChunkStart},
     chunk_loading::{
         chunk_loader::ChunkLoader, chunk_node_children::ChunkNodeChildren,
         chunk_tree::ChunkTreePos, lod_position::LodPosition,
@@ -133,13 +133,11 @@ pub fn check_for_task_spawning(
 
         let chunk_child_entity = commands.spawn_empty().id();
         commands.entity(chunk_child_entity).insert((
-            ChunkTaskGenerator(
-                *chunk_node.tree_pos,
-                chunk_node.position.lod,
-                chunk_node.position.relative_position,
-                0,
-                chunk_node_entity,
-            ),
+            ChunkStart {
+                chunk_lod_pos: chunk_node.position,
+                chunk_tree_pos: chunk_node.tree_pos,
+                chunk_stack_offset: 0,
+            },
             Visibility::Visible,
         ));
 
@@ -314,13 +312,11 @@ pub fn stack_chunks(
 
         let chunk_child_entity = commands.spawn_empty().id();
         commands.entity(chunk_child_entity).insert((
-            ChunkTaskGenerator(
-                *chunk.tree_position,
-                chunk.lod_position.lod,
-                chunk.lod_position.relative_position,
-                chunk.chunk_height + 1,
-                chunk_child_entity,
-            ),
+            ChunkStart {
+                chunk_lod_pos: chunk.lod_position,
+                chunk_tree_pos: chunk.tree_position,
+                chunk_stack_offset: chunk.chunk_height + 1,
+            },
             Visibility::Visible,
         ));
 

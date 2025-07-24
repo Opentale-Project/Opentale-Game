@@ -1,19 +1,16 @@
 use crate::{
     utils::{
         cartesian_product::cube_cartesian_product,
-        rotation::{rotate_around, RotationDirection},
+        rotation::{RotationDirection, rotate_around},
         vec_utils::vec_round_to_int,
     },
-    world_generation::{
-        chunk_generation::{
-            BlockType, 
-            structures::foliage_generation::entry_range::EntryRange,
-            VOXEL_SIZE
-        },
+    world_generation::chunk_generation::{
+        VOXEL_SIZE, block_type::BlockType,
+        structures::foliage_generation::entry_range::EntryRange,
     },
 };
 use bevy::math::Vec3;
-use rand::{rngs::StdRng, Rng};
+use rand::{Rng, rngs::StdRng};
 
 pub struct LSystemEntry<EntryEnum> {
     pub pos: Vec3,
@@ -58,7 +55,8 @@ pub trait LSystem<EntryEnum: Clone + Copy> {
             for (x, y, z) in cube_cartesian_product(-thickness..thickness) {
                 // Why are we casting to a float then to an i32
                 // then back to a float?
-                let current_pos_i = center + (Vec3::new(x as f32, y as f32, z as f32)).as_ivec3();
+                let current_pos_i = center
+                    + (Vec3::new(x as f32, y as f32, z as f32)).as_ivec3();
                 let current_pos = current_pos_i.as_vec3();
 
                 if current_pos_i.x < 0
@@ -87,7 +85,10 @@ pub trait LSystem<EntryEnum: Clone + Copy> {
         voxel_grid
     }
 
-    fn recurse_l_system(data: &mut Vec<LSystemEntry<EntryEnum>>, rng: &mut StdRng) -> bool {
+    fn recurse_l_system(
+        data: &mut Vec<LSystemEntry<EntryEnum>>,
+        rng: &mut StdRng,
+    ) -> bool {
         let mut i = 0usize;
         let mut changed = false;
 
@@ -184,8 +185,14 @@ pub trait LSystem<EntryEnum: Clone + Copy> {
         pieces
     }
 
-    fn get_start_state(position: Vec3, rng: &mut StdRng) -> Vec<LSystemEntry<EntryEnum>>;
-    fn process_tree(start_state: &mut Vec<LSystemEntry<EntryEnum>>, rng: &mut StdRng);
+    fn get_start_state(
+        position: Vec3,
+        rng: &mut StdRng,
+    ) -> Vec<LSystemEntry<EntryEnum>>;
+    fn process_tree(
+        start_state: &mut Vec<LSystemEntry<EntryEnum>>,
+        rng: &mut StdRng,
+    );
     fn get_block_from_entry(entry: &LSystemEntry<EntryEnum>) -> BlockType;
     fn recurse_entry(
         entry: &LSystemEntry<EntryEnum>,
