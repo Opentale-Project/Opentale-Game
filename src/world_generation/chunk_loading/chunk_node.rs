@@ -348,10 +348,12 @@ pub fn update_added_chunks(
         .iter()
         .filter(|chunk| chunk.0.generate_above == false)
     {
-        let (chunk_node, entity) = all_nodes
+        let Some((chunk_node, entity)) = all_nodes
             .iter_mut()
             .find(|node| node.1 == *added_chunk_parent)
-            .expect("No Node found for Chunk!");
+        else {
+            continue;
+        };
 
         if chunk_node.is_dead {
             continue;
