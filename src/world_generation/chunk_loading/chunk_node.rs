@@ -1,5 +1,3 @@
-use std::sync::{Arc, atomic::AtomicI8};
-
 use bevy::prelude::*;
 use itertools::Itertools;
 
@@ -64,7 +62,10 @@ impl ChunkNode {
     pub fn to_branch(&mut self, node_children: ChunkNodeChildren) {
         self.state = NodeState::LeafToBranch {
             children: node_children,
-            child_count: Arc::new(AtomicI8::new(0)),
+            top_left_done: false,
+            top_right_done: false,
+            bottom_left_done: false,
+            bottom_right_done: false,
         }
     }
 
@@ -347,10 +348,14 @@ pub fn update_added_chunks(
         .iter()
         .filter(|chunk| chunk.0.generate_above == false)
     {
-        let (chunk_node, ..) = all_nodes
+        let (chunk_node, entity) = all_nodes
             .iter_mut()
             .find(|node| node.1 == *added_chunk_parent)
             .expect("No Node found for Chunk!");
+
+        if chunk_node.is_dead {
+            continue;
+        }
 
         if let NodeState::BranchToLeaf { children, .. } = &chunk_node.state {
             for child in children.get_all() {
@@ -363,6 +368,7 @@ pub fn update_added_chunks(
         if let Some(chunk_node_parent) = chunk_node.parent {
             update_parent_count(
                 chunk_node_parent,
+                *entity,
                 &mut all_nodes,
                 &mut commands,
             );
@@ -372,6 +378,7 @@ pub fn update_added_chunks(
 
 fn update_parent_count(
     parent: Entity,
+    child: Entity,
     chunk_nodes: &mut Vec<(Mut<ChunkNode>, Entity)>,
     commands: &mut Commands,
 ) {
@@ -383,24 +390,29 @@ fn update_parent_count(
         return;
     };
 
-    match &parent_node.state {
-        NodeState::BranchToLeaf { children, .. } => {
-            for child in children.get_all() {
-                commands.entity(child).despawn();
+    match &mut parent_node.state {
+        NodeState::LeafToBranch {
+            top_left_done,
+            top_right_done,
+            bottom_left_done,
+            bottom_right_done,
+            children,
+        } => {
+            if child == children.top_left {
+                *top_left_done = true;
+            } else if child == children.top_right {
+                *top_right_done = true;
+            } else if child == children.bottom_left {
+                *bottom_left_done = true;
+            } else if child == children.bottom_right {
+                *bottom_right_done = true;
             }
 
-            parent_node.to_leaf_done();
-
-            if let Some(parent_parent) = parent_node.parent {
-                update_parent_count(parent_parent, chunk_nodes, commands);
-            }
-        }
-        NodeState::LeafToBranch { child_count, .. } => {
-            let child_count = child_count
-                .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
-                + 1;
-
-            if child_count >= 4 {
+            if *top_left_done
+                && *top_right_done
+                && *bottom_left_done
+                && *bottom_right_done
+            {
                 parent_node.to_branch_done();
 
                 for chunk_child in &parent_node.chunk_children {
@@ -414,7 +426,12 @@ fn update_parent_count(
                     return;
                 };
 
-                update_parent_count(parent_parent, chunk_nodes, commands);
+                update_parent_count(
+                    parent_parent,
+                    parent,
+                    chunk_nodes,
+                    commands,
+                );
             }
         }
         _ => {}

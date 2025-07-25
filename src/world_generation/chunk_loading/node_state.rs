@@ -1,5 +1,3 @@
-use std::sync::{Arc, atomic::AtomicI8};
-
 use crate::world_generation::chunk_loading::chunk_node_children::ChunkNodeChildren;
 
 #[derive(Clone)]
@@ -11,8 +9,11 @@ pub enum NodeState {
         spawned_task: bool,
     },
     LeafToBranch {
-        child_count: Arc<AtomicI8>,
         children: ChunkNodeChildren,
+        top_left_done: bool,
+        top_right_done: bool,
+        bottom_left_done: bool,
+        bottom_right_done: bool,
     },
     BranchToLeaf {
         spawned_task: bool,
