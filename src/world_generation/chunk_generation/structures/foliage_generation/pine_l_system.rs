@@ -102,7 +102,7 @@ impl LSystem<PineEntryType> for PineLSystem {
     fn get_block_from_entry(entry: &LSystemEntry<PineEntryType>) -> BlockType {
         match entry.entry_type {
             PineEntryType::Needle => BlockType::Grass,
-            _ => BlockType::Path,
+            _ => BlockType::Log,
         }
     }
 

@@ -1,13 +1,15 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    color::palettes::tailwind::{PINK_100, RED_500},
     image::{ImageAddressMode, ImageLoaderSettings, ImageSampler},
     pbr::{
         ExtendedMaterial,
         wireframe::{WireframeConfig, WireframePlugin},
     },
+    picking::pointer::PointerInteraction,
     prelude::*,
-    window::PresentMode,
+    render::primitives::Aabb,
 };
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
@@ -29,12 +31,12 @@ fn main() {
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         title: "Opentale".into(),
-                        present_mode: PresentMode::Immediate,
                         ..default()
                     }),
                     ..default()
                 })
                 .set(ImagePlugin::default_nearest()),
+            MeshPickingPlugin,
             PanOrbitCameraPlugin,
             WireframePlugin::default(),
             EguiPlugin::default(),
@@ -50,6 +52,7 @@ fn main() {
             (
                 remesh.run_if(resource_changed::<VoxelDataResource>),
                 setup.run_if(resource_added::<TextureResource>),
+                update_blocks,
             ),
         )
         .insert_resource(WireframeConfig {
@@ -96,13 +99,11 @@ fn setup(
     mut commands: Commands,
     mut voxel_data: ResMut<VoxelDataResource>,
     mut images: ResMut<Assets<Image>>,
+    texture_resource: Res<TextureResource>,
     mut materials: ResMut<
         Assets<ExtendedMaterial<StandardMaterial, ArrayTextureMaterial>>,
     >,
-    texture_resource: Res<TextureResource>,
 ) {
-    info!("SETUP");
-
     let image = images
         .get_mut(texture_resource.texture_handle.id())
         .unwrap();
@@ -132,14 +133,12 @@ fn setup(
 
     commands.spawn((
         MeshEntity,
-        Mesh3d::default(),
         MeshMaterial3d(materials.add(ExtendedMaterial {
             base: StandardMaterial::from_color(Color::WHITE),
             extension: ArrayTextureMaterial {
                 array_texture: texture_resource.texture_handle.clone(),
             },
         })),
-        Transform::default(),
     ));
 
     commands.spawn((
@@ -157,16 +156,64 @@ fn setup(
 
 fn remesh(
     voxel_data: Res<VoxelDataResource>,
-    mesh_entities: Query<&mut Mesh3d, With<MeshEntity>>,
+    mesh_entities: Query<Entity, With<MeshEntity>>,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut commands: Commands,
 ) {
-    for mut mesh in mesh_entities {
-        let Some((generated_mesh, ..)) =
+    for entity in mesh_entities {
+        let Some((generated_mesh, positions, ..)) =
             generate_mesh(&voxel_data.voxel_data, 0, ChunkLod::Full)
         else {
             return;
         };
 
-        mesh.0 = meshes.add(generated_mesh);
+        commands.entity(entity).insert((
+            Mesh3d(meshes.add(generated_mesh)),
+            Aabb::enclosing(positions).unwrap(),
+        ));
+    }
+}
+
+fn update_blocks(
+    mut voxel_data: ResMut<VoxelDataResource>,
+    pointers: Query<&PointerInteraction>,
+    mouse: Res<ButtonInput<MouseButton>>,
+    mut gizmos: Gizmos,
+) {
+    for (point, normal) in pointers
+        .iter()
+        .filter_map(|interaction| interaction.get_nearest_hit())
+        .filter_map(|(_entity, hit)| hit.position.zip(hit.normal))
+    {
+        if mouse.just_released(MouseButton::Left) {
+            let next_block_pos = (point + normal * 0.1).floor().as_ivec3();
+
+            if next_block_pos.min_element() < 1
+                || next_block_pos.max_element() > 64
+            {
+                continue;
+            }
+
+            voxel_data
+                .voxel_data
+                .set_block(next_block_pos, BlockType::Stone);
+        }
+
+        if mouse.just_released(MouseButton::Right) {
+            let current_block_pos = (point - normal * 0.1).floor().as_ivec3();
+
+            if current_block_pos.min_element() < 1
+                || current_block_pos.max_element() > 64
+            {
+                continue;
+            }
+
+            voxel_data
+                .voxel_data
+                .set_block(current_block_pos, BlockType::Air);
+        }
+
+        gizmos.sphere(point, 0.05, RED_500);
+        gizmos.arrow(point, point + normal.normalize() * 0.5, PINK_100);
     }
 }

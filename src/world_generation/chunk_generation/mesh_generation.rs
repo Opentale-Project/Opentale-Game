@@ -11,10 +11,8 @@ pub fn generate_mesh(
     min_height: i32,
     chunk_lod: ChunkLod,
 ) -> Option<(Mesh, Vec<Vec3>, Vec<[u32; 3]>)> {
-    let mut mesh = Mesh::new(
-        PrimitiveTopology::TriangleList,
-        RenderAssetUsages::RENDER_WORLD,
-    );
+    let mut mesh =
+        Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::all());
 
     let mut positions: Vec<[f32; 3]> = Vec::new();
     let mut normals: Vec<[f32; 3]> = Vec::new();
