@@ -1,11 +1,10 @@
 use crate::world_generation::array_texture::ATTRIBUTE_TEXTURE_ID;
+use crate::world_generation::chunk_generation::chunk_lod::ChunkLod;
+use crate::world_generation::chunk_generation::voxel_data::VoxelData;
 use crate::world_generation::chunk_generation::{CHUNK_SIZE, VOXEL_SIZE};
-use crate::world_generation::voxel_world::ChunkLod;
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
 use bevy::render::render_asset::RenderAssetUsages;
-
-use super::voxel_types::VoxelData;
 
 pub fn generate_mesh(
     blocks: &VoxelData,
@@ -23,7 +22,10 @@ pub fn generate_mesh(
     let mut uvs: Vec<[f32; 2]> = Vec::new();
     let mut texture_ids: Vec<u32> = Vec::new();
 
-    fn rotate_into_direction<T: Vec3Swizzles>(vector: T, direction: IVec3) -> T {
+    fn rotate_into_direction<T: Vec3Swizzles>(
+        vector: T,
+        direction: IVec3,
+    ) -> T {
         match direction {
             IVec3::X | IVec3::NEG_X => vector.xzy(),
             IVec3::Y | IVec3::NEG_Y => vector.yxz(),
@@ -37,8 +39,10 @@ pub fn generate_mesh(
             let mut done_faces = [[false; CHUNK_SIZE]; CHUNK_SIZE];
             for j in 1..CHUNK_SIZE + 1 {
                 for k in 1..CHUNK_SIZE + 1 {
-                    let current_pos =
-                        rotate_into_direction(IVec3::new(i as i32, j as i32, k as i32), direction);
+                    let current_pos = rotate_into_direction(
+                        IVec3::new(i as i32, j as i32, k as i32),
+                        direction,
+                    );
 
                     let height_dir = rotate_into_direction(IVec3::Y, direction);
                     let width_dir = rotate_into_direction(IVec3::Z, direction);
@@ -46,7 +50,9 @@ pub fn generate_mesh(
                     let width_pos = (current_pos * width_dir).max_element();
                     let height_pos = (current_pos * height_dir).max_element();
 
-                    if done_faces[width_pos as usize - 1][height_pos as usize - 1]
+                    let [face_x, face_y] =
+                        [width_pos as usize - 1, height_pos as usize - 1];
+                    if done_faces[face_x][face_y]
                         || blocks.is_air(current_pos)
                         || !blocks.is_air(current_pos + direction)
                     {
@@ -61,16 +67,22 @@ pub fn generate_mesh(
                     while height_pos + height <= CHUNK_SIZE as i32
                         && !done_faces[width_pos as usize - 1]
                             [height_pos as usize + height as usize - 1]
-                        && blocks.get_block(current_pos + (height_dir * height)) == current_block
-                        && blocks.is_air(current_pos + (height_dir * height) + direction)
+                        && blocks.get_block(current_pos + (height_dir * height))
+                            == current_block
+                        && blocks.is_air(
+                            current_pos + (height_dir * height) + direction,
+                        )
                     {
                         height += 1;
                     }
 
                     while width_pos + width <= CHUNK_SIZE as i32
                         && (0..height).all(|height| {
-                            !done_faces[width_pos as usize + width as usize - 1]
-                                [height_pos as usize + height as usize - 1]
+                            let [face_x, face_y] = [
+                                width_pos as usize + width as usize - 1,
+                                height_pos as usize + height as usize - 1,
+                            ];
+                            !done_faces[face_x][face_y]
                                 && blocks.get_block(
                                     current_pos
                                         + (width_dir * width as i32)
@@ -94,8 +106,8 @@ pub fn generate_mesh(
                     }
 
                     let uv_start = Vec2::ZERO;
-                    let uv_end =
-                        Vec2::new(width as f32, height as f32) * chunk_lod.multiplier_f32();
+                    let uv_end = Vec2::new(width as f32, height as f32)
+                        * chunk_lod.multiplier_f32();
 
                     uvs.extend_from_slice(&[
                         [uv_end.x, uv_end.y],
@@ -111,35 +123,27 @@ pub fn generate_mesh(
 
                     let vertex_pos = current_pos.as_vec3();
 
-                    let direction_adder = direction * (direction.min_element().abs());
+                    let direction_adder =
+                        direction * direction.min_element().abs();
 
-                    positions.extend_from_slice(&[
-                        (vertex_pos
-                            + (rotate_into_direction(Vec3::new(0.5, -0.5, -0.5), direction))
-                            + direction_adder.as_vec3())
-                        .to_array(),
-                        (vertex_pos
-                            + (rotate_into_direction(
-                                Vec3::new(0.5, -0.5, 0.5 + width),
-                                direction,
-                            ))
-                            + direction_adder.as_vec3())
-                        .to_array(),
-                        (vertex_pos
-                            + (rotate_into_direction(
-                                Vec3::new(0.5, 0.5 + height, 0.5 + width),
-                                direction,
-                            ))
-                            + direction_adder.as_vec3())
-                        .to_array(),
-                        (vertex_pos
-                            + (rotate_into_direction(
-                                Vec3::new(0.5, 0.5 + height, -0.5),
-                                direction,
-                            ))
-                            + direction_adder.as_vec3())
-                        .to_array(),
-                    ]);
+                    let vecs = &[
+                        Vec3::new(0.5, -0.5, -0.5),
+                        Vec3::new(0.5, -0.5, 0.5 + width),
+                        Vec3::new(0.5, 0.5 + height, 0.5 + width),
+                        Vec3::new(0.5, 0.5 + height, -0.5),
+                    ];
+
+                    positions.extend_from_slice(
+                        vecs.into_iter()
+                            .map(|e| {
+                                (vertex_pos
+                                    + rotate_into_direction(*e, direction)
+                                    + direction_adder.as_vec3())
+                                .to_array()
+                            })
+                            .collect::<Vec<_>>()
+                            .as_slice(),
+                    );
 
                     normals.extend_from_slice(&[
                         direction.as_vec3().to_array(),
@@ -150,8 +154,9 @@ pub fn generate_mesh(
 
                     let texture_id = current_block.get_texture_id();
 
-                    texture_ids
-                        .extend_from_slice(&[texture_id, texture_id, texture_id, texture_id]);
+                    texture_ids.extend_from_slice(&[
+                        texture_id, texture_id, texture_id, texture_id,
+                    ]);
 
                     let invert = !direction.min_element() < 0;
 
@@ -184,11 +189,16 @@ pub fn generate_mesh(
     }
 
     for position in positions.iter_mut() {
-        position[0] = (position[0] - 0.5) * VOXEL_SIZE * chunk_lod.multiplier_f32() + VOXEL_SIZE;
-        position[1] =
-            (position[1] + min_height as f32 - 0.5) * VOXEL_SIZE * chunk_lod.multiplier_f32()
+        position[0] =
+            (position[0] - 0.5) * VOXEL_SIZE * chunk_lod.multiplier_f32()
                 + VOXEL_SIZE;
-        position[2] = (position[2] - 0.5) * VOXEL_SIZE * chunk_lod.multiplier_f32() + VOXEL_SIZE;
+        position[1] = (position[1] + min_height as f32 - 0.5)
+            * VOXEL_SIZE
+            * chunk_lod.multiplier_f32()
+            + VOXEL_SIZE;
+        position[2] =
+            (position[2] - 0.5) * VOXEL_SIZE * chunk_lod.multiplier_f32()
+                + VOXEL_SIZE;
     }
 
     let mut mesh_triangles: Vec<u32> = Vec::new();

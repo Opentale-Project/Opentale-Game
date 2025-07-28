@@ -4,16 +4,17 @@ pub struct ShiftNScale<T, const SCALE: i32, const SHIFT: i32> {
     noise: T,
 }
 
-impl<T, const SCALE: i32, const SHIFT: i32> ShiftNScale<T, SCALE, SHIFT>
-{
+impl<T, const SCALE: i32, const SHIFT: i32> ShiftNScale<T, SCALE, SHIFT> {
     pub fn new(source: T) -> Self {
-        Self {
-            noise: source,
-        }
+        Self { noise: source }
     }
 }
 
-impl<T, const SCALE: i32, const SHIFT: i32> Default for ShiftNScale<T, SCALE, SHIFT>
+impl<
+    T, 
+    const SCALE: i32, 
+    const SHIFT: i32
+> Default for ShiftNScale<T, SCALE, SHIFT>
 where
     T: Default + Seedable,
 {
@@ -24,7 +25,11 @@ where
     }
 }
 
-impl<T, const SCALE: i32, const SHIFT: i32> Seedable for ShiftNScale<T, SCALE, SHIFT>
+impl<
+    T, 
+    const SCALE: i32, 
+    const SHIFT: i32
+> Seedable for ShiftNScale<T, SCALE, SHIFT>
 where
     T: Default + Seedable,
 {
@@ -38,8 +43,12 @@ where
     }
 }
 
-impl<T, const SCALE: i32, const SHIFT: i32, const D: usize> NoiseFn<f64, D>
-    for ShiftNScale<T, SCALE, SHIFT>
+impl<
+    T, 
+    const SCALE: i32, 
+    const SHIFT: i32, 
+    const D: usize
+> NoiseFn<f64, D> for ShiftNScale<T, SCALE, SHIFT>
 where
     T: Default + Seedable + NoiseFn<f64, D>,
 {

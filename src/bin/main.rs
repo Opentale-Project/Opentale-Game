@@ -1,5 +1,5 @@
-use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::pbr::ExtendedMaterial;
+use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::prelude::*;
 use bevy::window::PresentMode;
 use bevy_atmosphere::prelude::AtmospherePlugin;
@@ -7,12 +7,12 @@ use bevy_inspector_egui::bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::PanOrbitCameraPlugin;
 use bevy_rapier3d::prelude::{NoUserData, RapierPhysicsPlugin};
-use spellhaven::animations::AnimationPlugin;
-use spellhaven::debug_tools::debug_resource::SpellhavenDebugPlugin;
-use spellhaven::player::PlayerPlugin;
-use spellhaven::ui::ui::GameUiPlugin;
-use spellhaven::world_generation::array_texture::ArrayTextureMaterial;
-use spellhaven::world_generation::WorldGenerationPlugin;
+use opentale::animation::animation_plugin::OpentaleAnimationPlugin;
+use opentale::debug_tools::debug_plugin::OpentaleDebugPlugin;
+use opentale::player::player_plugin::PlayerPlugin;
+use opentale::ui::game_ui_plugin::GameUiPlugin;
+use opentale::world_generation::array_texture::ArrayTextureMaterial;
+use opentale::world_generation::world_generation_plugin::WorldGenerationPlugin;
 use std::f32::consts::PI;
 
 fn main() {
@@ -21,7 +21,7 @@ fn main() {
             DefaultPlugins
                 .set(WindowPlugin {
                     primary_window: Some(Window {
-                        title: "Spellhaven".into(),
+                        title: "Opentale".into(),
                         present_mode: PresentMode::Immediate,
                         ..default()
                     }),
@@ -35,15 +35,14 @@ fn main() {
             //RapierDebugRenderPlugin::default(),
             PlayerPlugin,
             WireframePlugin { ..default() },
-            AnimationPlugin,
-            //BirdCameraPlugin,
-            EguiPlugin {
-                enable_multipass_for_primary_context: false,
-            },
+            OpentaleAnimationPlugin,
+            EguiPlugin::default(),
             WorldInspectorPlugin::new(),
             GameUiPlugin,
-            SpellhavenDebugPlugin,
-            MaterialPlugin::<ExtendedMaterial<StandardMaterial, ArrayTextureMaterial>>::default(),
+            OpentaleDebugPlugin,
+            MaterialPlugin::<
+                ExtendedMaterial<StandardMaterial, ArrayTextureMaterial>,
+            >::default(),
         ))
         .add_systems(Startup, setup)
         .insert_resource(WireframeConfig {
@@ -73,10 +72,4 @@ fn setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
         brightness: 75f32,
         ..default()
     });
-
-    // commands.spawn(SceneBundle {
-    //     scene: asset_server.load("player.gltf#Scene0"),
-    //     transform: Transform::from_xyz(0., 150., 0.),
-    //     ..default()
-    // });
 }

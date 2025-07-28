@@ -1,4 +1,8 @@
 mod fps_text;
-mod main_menu;
+pub mod game_ui_plugin;
+mod initial_chunk_loader;
+mod main_menu_data;
+mod main_menu_plugin;
+pub mod main_menu_state;
 mod task_text;
-pub mod ui;
+mod triangle_count_text;

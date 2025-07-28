@@ -1,6 +1,6 @@
 use std::f64::consts::E;
 
-use noise::{math::vectors::Vector2, MultiFractal, NoiseFn, Seedable};
+use noise::{MultiFractal, NoiseFn, Seedable, math::vectors::Vector2};
 
 pub struct GFT<T> {
     pub octaves: usize,
@@ -14,31 +14,29 @@ pub struct GFT<T> {
     scale_factor: f64,
 }
 
+pub const DEFAULT_OCTAVE_COUNT: usize = 6;
+pub const DEFAULT_FREQUENCY: f64 = 1.0;
+pub const DEFAULT_LACUNARITY: f64 = 2.0;
+//pub const DEFAULT_LACUNARITY: f64 = core::f64::consts::PI * 2.0 / 3.0;
+pub const DEFAULT_PERSISTENCE: f64 = 0.5;
+pub const DEFAULT_GRADIENT: f64 = 1.;
+pub const DEFAULT_AMPLITUDE: f64 = 1.;
+pub const DEFAULT_SEED: u32 = 0;
+
 impl<T> GFT<T>
 where
     T: NoiseFn<f64, 2>,
 {
-    pub const DEFAULT_OCTAVE_COUNT: usize = 6;
-    pub const DEFAULT_FREQUENCY: f64 = 1.0;
-    pub const DEFAULT_LACUNARITY: f64 = 2.0; //core::f64::consts::PI * 2.0 / 3.0;
-    pub const DEFAULT_PERSISTENCE: f64 = 0.5;
-    pub const DEFAULT_GRADIENT: f64 = 1.;
-    pub const DEFAULT_AMPLITUDE: f64 = 1.;
-    pub const DEFAULT_SEED: u32 = 0;
-
     pub fn new_with_source(source: T) -> Self {
         Self {
-            octaves: Self::DEFAULT_OCTAVE_COUNT,
-            frequency: Self::DEFAULT_FREQUENCY,
-            lacunarity: Self::DEFAULT_LACUNARITY,
-            persistence: Self::DEFAULT_PERSISTENCE,
-            gradient: Self::DEFAULT_GRADIENT,
-            amplitude: Self::DEFAULT_AMPLITUDE,
+            octaves: DEFAULT_OCTAVE_COUNT,
+            frequency: DEFAULT_FREQUENCY,
+            lacunarity: DEFAULT_LACUNARITY,
+            persistence: DEFAULT_PERSISTENCE,
+            gradient: DEFAULT_GRADIENT,
+            amplitude: DEFAULT_AMPLITUDE,
             source: source,
-            scale_factor: Self::calc_scale_factor(
-                Self::DEFAULT_PERSISTENCE,
-                Self::DEFAULT_OCTAVE_COUNT,
-            ),
+            scale_factor: Self::calc_scale_factor(DEFAULT_PERSISTENCE, DEFAULT_OCTAVE_COUNT),
         }
     }
 
@@ -50,7 +48,9 @@ where
 }
 
 impl<T> GFT<T>
-where T: NoiseFn<f64, 2> + Default + Seedable {
+where
+    T: NoiseFn<f64, 2> + Default + Seedable,
+{
     pub fn new(seed: u32) -> Self {
         Self::new_with_source(T::default().set_seed(seed))
     }
@@ -61,7 +61,7 @@ where
     T: Default + NoiseFn<f64, 2> + Seedable,
 {
     fn default() -> Self {
-        Self::new(Self::DEFAULT_SEED)
+        Self::new(DEFAULT_SEED)
     }
 }
 
@@ -134,10 +134,12 @@ where
 
             // Get the signal.
             let noise_value = self.source.get((point * frequency).into_array());
-            let noise_value_offset_x =
-                self.source.get((point * frequency + offset_x_point).into_array());
-            let noise_value_offset_y =
-                self.source.get((point * frequency + offset_y_point).into_array());
+            let noise_value_offset_x = self
+                .source
+                .get((point * frequency + offset_x_point).into_array());
+            let noise_value_offset_y = self
+                .source
+                .get((point * frequency + offset_y_point).into_array());
 
             let derivative = Vector2::new(
                 (noise_value_offset_x - noise_value) / derivative_offset,

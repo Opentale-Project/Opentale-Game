@@ -13,7 +13,7 @@ use bevy_rapier3d::prelude::{NoUserData, RapierPhysicsPlugin};
 use fastnoise_lite::FastNoiseLite;
 use rand::{rng, RngCore};
 use spellhaven::animations::AnimationPlugin;
-use spellhaven::debug_tools::debug_resource::SpellhavenDebugPlugin;
+use spellhaven::debug_tools::debug_resource::OpentaleDebugPlugin;
 use spellhaven::terrain_material::TerrainMaterial;
 use spellhaven::world_generation::chunk_generation::mesh_generation::generate_mesh;
 use spellhaven::world_generation::chunk_generation::pine_structure_generator::PineStructureGenerator;
@@ -47,7 +47,7 @@ fn main() {
                 enable_multipass_for_primary_context: false,
             },
             WorldInspectorPlugin::new(),
-            SpellhavenDebugPlugin,
+            OpentaleDebugPlugin,
             MaterialPlugin::<ExtendedMaterial<StandardMaterial, TerrainMaterial>>::default(),
         ))
         .add_systems(Startup, setup)
