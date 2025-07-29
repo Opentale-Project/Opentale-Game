@@ -1,4 +1,6 @@
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]
 pub enum BlockType {
     Air,
     Stone,
