@@ -78,6 +78,8 @@ fn main() {
         }
 
         save_data.file_name = open_structure.clone();
+    } else {
+        voxel_data.set_block([1, 1, 1], BlockType::Stone);
     }
 
     App::new()
