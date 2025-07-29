@@ -1,10 +1,13 @@
-use crate::world_generation::chunk_generation::{
-    block_type::BlockType,
-    noise::terrain_noise::{TERRAIN_NOISE_FILE_PATH, TerrainNoise},
-    structures::{
-        oak_structure_generator::OakStructureGenerator,
-        structure_generator::{StructureGenerator, VoxelStructureMetadata},
-        tree_structure_generator::TreeStructureGenerator,
+use crate::{
+    utils::file_utils::read_ron_from_file,
+    world_generation::chunk_generation::{
+        block_type::BlockType,
+        noise::terrain_noise::{TERRAIN_NOISE_FILE_PATH, TerrainNoise},
+        structures::{
+            oak_structure_generator::OakStructureGenerator,
+            structure_generator::{StructureGenerator, VoxelStructureMetadata},
+            tree_structure_generator::TreeStructureGenerator,
+        },
     },
 };
 use bevy::prelude::*;
@@ -13,7 +16,6 @@ use noise::NoiseFn;
 use rand::prelude::StdRng;
 use rand::{Rng, SeedableRng};
 use std::sync::Arc;
-use std::{fs::File, io::Read};
 
 #[derive(Resource)]
 pub struct GenerationOptionsResource(pub Arc<GenerationOptions>);
@@ -25,14 +27,13 @@ impl GenerationOptionsResource {
         // );
         // let box_structure =
         //     vox_data_to_structure_data(&from_file("assets/box.vox").unwrap());
-        let mut terrain_noise_file = File::open(TERRAIN_NOISE_FILE_PATH)
-            .expect("Terrain noise config not found!");
-        let mut terrain_noise_text = String::new();
-        terrain_noise_file
-            .read_to_string(&mut terrain_noise_text)
-            .expect("Failed reading terrain config file!");
-        let terrain_noise: TerrainNoise = ron::from_str(&terrain_noise_text)
-            .expect("Failed deserializing terrain noise config!");
+        let terrain_noise: TerrainNoise =
+            read_ron_from_file(TERRAIN_NOISE_FILE_PATH)
+                .expect("Failed loading terrain noise config.");
+
+        // let tree_model: StructureModel =
+        //     read_ron_from_file("assets/tree_test.ron")
+        //         .expect("Failed to load tree model.");
 
         let mut rng = StdRng::seed_from_u64(seed);
 
@@ -72,11 +73,11 @@ impl GenerationOptionsResource {
                     },
                 ))),
                 // Arc::new(Box::new(FixedStructureGenerator {
-                //     fixed_structure_model: tree_house.0.clone(),
+                //     fixed_structure_model: Arc::new(tree_model.blocks),
                 //     fixed_structure_metadata: VoxelStructureMetadata {
-                //         model_size: tree_house.1,
-                //         generation_size: [1000, 1000],
-                //         grid_offset: [7, 11],
+                //         model_size: tree_model.model_size.to_array(),
+                //         generation_size: [10, 10],
+                //         grid_offset: [7, 4],
                 //         generate_debug_blocks: false,
                 //         debug_rgb_multiplier: [1., 1., 1.],
                 //         noise: get_seeded_white_noise(rng.random()),

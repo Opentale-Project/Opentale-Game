@@ -136,7 +136,7 @@ pub fn generate_voxels(
                     [x as i32, y as i32 - min_height, z as i32],
                     // BlockType::Gray((biome_noise.get([total_x as f64, total_z as f64]) * 255.) as u8)
                     if is_path {
-                        BlockType::Path
+                        BlockType::Log
                     } else {
                         if is_grass_steep
                             && y + 1 == noise_height.floor() as i32
