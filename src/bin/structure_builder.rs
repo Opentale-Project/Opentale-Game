@@ -18,6 +18,7 @@ use bevy::{
 use bevy_inspector_egui::{
     bevy_egui::{EguiContexts, EguiPlugin, EguiPrimaryContextPass},
     egui,
+    quick::WorldInspectorPlugin,
 };
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use itertools::Itertools;
@@ -100,6 +101,7 @@ fn main() {
             PanOrbitCameraPlugin,
             WireframePlugin::default(),
             EguiPlugin::default(),
+            WorldInspectorPlugin::default(),
             OpentaleDebugPlugin,
             MaterialPlugin::<
                 ExtendedMaterial<StandardMaterial, ArrayTextureMaterial>,
