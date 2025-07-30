@@ -92,6 +92,9 @@ pub fn generate_voxels(
                     &all_paths,
                     IVec2::ONE * 15,
                 );
+
+            path_distance *= 2.;
+
             let is_path = path_distance <= 8.75;
 
             path_distance /= 10.;
@@ -113,7 +116,7 @@ pub fn generate_voxels(
                     .get(closest_point_on_path.as_dvec2().to_array())
                     as f32;
                 let closest_point_height =
-                    lerp(closest_point_height, noise_height, 0.5);
+                    lerp(closest_point_height, noise_height, 0.75);
 
                 let path_height = lerp(closest_point_height, path_height, 0.5);
 
@@ -136,7 +139,7 @@ pub fn generate_voxels(
                     [x as i32, y as i32 - min_height, z as i32],
                     // BlockType::Gray((biome_noise.get([total_x as f64, total_z as f64]) * 255.) as u8)
                     if is_path {
-                        BlockType::Log
+                        BlockType::Dirt
                     } else {
                         if is_grass_steep
                             && y + 1 == noise_height.floor() as i32

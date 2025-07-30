@@ -8,6 +8,7 @@ pub enum BlockType {
     Log,
     Snow,
     Leaf,
+    Dirt,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]
@@ -35,6 +36,7 @@ impl BlockType {
             BlockType::Stone => 1,
             BlockType::Snow => 2,
             BlockType::Leaf => 5,
+            BlockType::Dirt => 7,
             _ => 0,
         }
     }

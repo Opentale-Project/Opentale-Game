@@ -13,7 +13,7 @@ use crate::world_generation::{
     generation_options::GenerationOptionsResource,
 };
 
-pub const COUNTRY_SIZE: usize = 2usize.pow(15);
+pub const COUNTRY_SIZE: usize = 2usize.pow(13);
 
 #[derive(Resource, Default)]
 pub struct CountryCache {

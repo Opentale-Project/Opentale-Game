@@ -231,7 +231,7 @@ impl GenerationCacheItem<CountryPosition> for PathData {
                 cache_store.clone(),
             );
 
-        let path_finding_lod = ChunkLod::Sixteenth;
+        let path_finding_lod = ChunkLod::Thirtytwoth;
 
         Self {
             paths: vec![
@@ -369,7 +369,7 @@ impl PathData {
 
                 let height_difference = (current_height - next_height).abs()
                     / path_finding_lod.multiplier_i32() as f64;
-                if height_difference > 0.65 {
+                if height_difference > 0.55 {
                     continue;
                 }
 
@@ -380,7 +380,7 @@ impl PathData {
 
                 let real_weight = real_weight
                     + weight
-                    + (height_difference * 30.) as i32
+                    + (height_difference * 40.) as i32
                     + (steepness * 20.) as i32; //((total_steepness * 0.6).max(0.) * 10.0) as i32;
                 if weights
                     .get(&next)

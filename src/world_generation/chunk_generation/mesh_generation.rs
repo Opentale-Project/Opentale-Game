@@ -25,6 +25,7 @@ pub fn generate_mesh(
             BlockType::Grass,
             BlockType::Log,
             BlockType::Snow,
+            BlockType::Dirt,
         ],
         voxel_data,
         min_height,

@@ -8,7 +8,10 @@ pub struct InitialChunkLoader;
 pub fn spawn_initial_chunk_loader(mut commands: Commands) {
     commands.spawn((
         InitialChunkLoader,
-        ChunkLoader::default(),
+        ChunkLoader {
+            load_range: 4,
+            ..Default::default()
+        },
         Transform::default(),
     ));
 }
