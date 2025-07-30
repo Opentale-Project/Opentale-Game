@@ -72,7 +72,7 @@ pub(super) fn spawn_player(
             ..default()
         }),
         Exposure::SUNLIGHT,
-        Tonemapping::AcesFitted,
+        Tonemapping::TonyMcMapface,
         Bloom::NATURAL,
         PanOrbitCamera::default(),
         Atmosphere::EARTH,
