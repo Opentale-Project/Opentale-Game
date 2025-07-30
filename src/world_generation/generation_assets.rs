@@ -44,8 +44,9 @@ pub fn load_block_texture_assets(
 
     block_textures.push(asset_server.load("grass_top.png"));
     block_textures.push(asset_server.load("stone.png"));
-    block_textures.push(asset_server.load("sassafras_log.png"));
     block_textures.push(asset_server.load("snow.png"));
+    block_textures.push(asset_server.load("sassafras_log.png"));
+    block_textures.push(asset_server.load("sassafras_log_top.png"));
 
     commands.insert_resource(BlockTextureAssets { block_textures });
 

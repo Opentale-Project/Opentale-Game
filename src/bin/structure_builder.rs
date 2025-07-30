@@ -7,7 +7,6 @@ use std::{
 
 use bevy::{
     color::palettes::tailwind::{PINK_100, RED_500},
-    image::{ImageAddressMode, ImageLoaderSettings, ImageSampler},
     pbr::{
         ExtendedMaterial,
         wireframe::{WireframeConfig, WireframePlugin},
@@ -31,6 +30,10 @@ use opentale::{
             block_type::BlockType, chunk_lod::ChunkLod,
             mesh_generation::generate_mesh,
             structures::structure_model::StructureModel, voxel_data::VoxelData,
+        },
+        generation_assets::{
+            GenerationAssetState, GenerationAssets, load_block_texture_assets,
+            setup_array_texture,
         },
     },
 };
@@ -102,19 +105,24 @@ fn main() {
                 ExtendedMaterial<StandardMaterial, ArrayTextureMaterial>,
             >::default(),
         ))
-        .add_systems(Startup, setup_texture)
         .add_systems(
             Update,
             (
                 remesh.run_if(resource_changed::<VoxelDataResource>),
-                setup.run_if(resource_added::<TextureResource>),
-                remesh
-                    .run_if(resource_added::<TextureResource>)
-                    .after(setup),
                 update_blocks,
+                setup_array_texture
+                    .run_if(in_state(GenerationAssetState::Loading)),
             ),
         )
+        .add_systems(
+            OnEnter(GenerationAssetState::Loaded),
+            (setup.before(remesh), remesh),
+        )
         .add_systems(EguiPrimaryContextPass, render_gui)
+        .add_systems(
+            OnEnter(GenerationAssetState::Unloaded),
+            load_block_texture_assets,
+        )
         .insert_resource(WireframeConfig {
             global: false,
             default_color: Color::srgb(1., 0., 0.),
@@ -124,6 +132,7 @@ fn main() {
             selected_block: BlockType::Stone,
         })
         .insert_resource(save_data)
+        .init_state::<GenerationAssetState>()
         .run();
 }
 
@@ -131,11 +140,6 @@ fn main() {
 struct VoxelDataResource {
     voxel_data: VoxelData,
     selected_block: BlockType,
-}
-
-#[derive(Resource)]
-struct TextureResource {
-    texture_handle: Handle<Image>,
 }
 
 #[derive(Component)]
@@ -146,40 +150,13 @@ struct SaveData {
     file_name: String,
 }
 
-fn setup_texture(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let texture_handle =
-        asset_server.load_with_settings("array_texture.png", |s: &mut _| {
-            *s = ImageLoaderSettings {
-                sampler: ImageSampler::Descriptor(
-                    bevy::image::ImageSamplerDescriptor {
-                        // rewriting mode to repeat image,
-                        address_mode_u: ImageAddressMode::Repeat,
-                        address_mode_v: ImageAddressMode::Repeat,
-                        ..default()
-                    },
-                ),
-                ..default()
-            }
-        });
-
-    commands.insert_resource(TextureResource { texture_handle });
-}
-
 fn setup(
     mut commands: Commands,
-    mut images: ResMut<Assets<Image>>,
-    texture_resource: Res<TextureResource>,
+    generation_assets: Res<GenerationAssets>,
     mut materials: ResMut<
         Assets<ExtendedMaterial<StandardMaterial, ArrayTextureMaterial>>,
     >,
 ) {
-    let image = images
-        .get_mut(texture_resource.texture_handle.id())
-        .unwrap();
-
-    let array_layers = 4;
-    image.reinterpret_stacked_2d_as_array(array_layers);
-
     commands.spawn((
         DirectionalLight {
             shadows_enabled: true,
@@ -205,7 +182,7 @@ fn setup(
         MeshMaterial3d(materials.add(ExtendedMaterial {
             base: StandardMaterial::from_color(Color::WHITE),
             extension: ArrayTextureMaterial {
-                array_texture: texture_resource.texture_handle.clone(),
+                array_texture: generation_assets.texture_handle.clone(),
             },
         })),
     ));

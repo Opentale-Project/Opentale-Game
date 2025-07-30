@@ -1,4 +1,5 @@
 use crate::world_generation::array_texture::ATTRIBUTE_TEXTURE_ID;
+use crate::world_generation::chunk_generation::block_type::BlockFace;
 use crate::world_generation::chunk_generation::chunk_lod::ChunkLod;
 use crate::world_generation::chunk_generation::voxel_data::VoxelData;
 use crate::world_generation::chunk_generation::{CHUNK_SIZE, VOXEL_SIZE};
@@ -25,14 +26,14 @@ pub fn generate_mesh(
         direction: IVec3,
     ) -> T {
         match direction {
-            IVec3::X | IVec3::NEG_X => vector.xzy(),
+            IVec3::X | IVec3::NEG_X => vector.xyz(),
             IVec3::Y | IVec3::NEG_Y => vector.yxz(),
             IVec3::Z | IVec3::NEG_Z => vector.zyx(),
             _ => vector,
         }
     }
 
-    let mut generate_sides = |direction: IVec3| {
+    let mut generate_sides = |direction: IVec3, block_face: BlockFace| {
         for i in 1..CHUNK_SIZE + 1 {
             let mut done_faces = [[false; CHUNK_SIZE]; CHUNK_SIZE];
             for j in 1..CHUNK_SIZE + 1 {
@@ -150,13 +151,18 @@ pub fn generate_mesh(
                         direction.as_vec3().to_array(),
                     ]);
 
-                    let texture_id = current_block.get_texture_id();
+                    let texture_id = current_block.get_texture_id(block_face);
 
                     texture_ids.extend_from_slice(&[
                         texture_id, texture_id, texture_id, texture_id,
                     ]);
 
-                    let invert = !direction.min_element() < 0;
+                    let mut invert = !direction.min_element() < 0;
+
+                    if matches!(block_face, BlockFace::Right | BlockFace::Left)
+                    {
+                        invert = !invert;
+                    }
 
                     triangles.extend_from_slice(&[
                         [
@@ -175,12 +181,12 @@ pub fn generate_mesh(
         }
     };
 
-    generate_sides(IVec3::X);
-    generate_sides(IVec3::NEG_X);
-    generate_sides(IVec3::Z);
-    generate_sides(IVec3::NEG_Z);
-    generate_sides(IVec3::Y);
-    generate_sides(IVec3::NEG_Y);
+    generate_sides(IVec3::X, BlockFace::Right);
+    generate_sides(IVec3::NEG_X, BlockFace::Left);
+    generate_sides(IVec3::Z, BlockFace::Front);
+    generate_sides(IVec3::NEG_Z, BlockFace::Back);
+    generate_sides(IVec3::Y, BlockFace::Top);
+    generate_sides(IVec3::NEG_Y, BlockFace::Bottom);
 
     if triangles.is_empty() {
         return None;
