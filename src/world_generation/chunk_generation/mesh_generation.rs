@@ -1,4 +1,7 @@
 use crate::world_generation::array_texture::ATTRIBUTE_TEXTURE_ID;
+use crate::world_generation::chunk_generation::block_type::{
+    BlockFace, BlockType,
+};
 use crate::world_generation::chunk_generation::chunk_lod::ChunkLod;
 use crate::world_generation::chunk_generation::voxel_data::VoxelData;
 use crate::world_generation::chunk_generation::{CHUNK_SIZE, VOXEL_SIZE};
@@ -6,11 +9,47 @@ use bevy::prelude::*;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
 use bevy::render::render_asset::RenderAssetUsages;
 
+pub struct MeshResult {
+    pub opaque_mesh: Option<Mesh>,
+    pub transparent_mesh: Option<Mesh>,
+}
+
 pub fn generate_mesh(
-    blocks: &VoxelData,
+    voxel_data: &VoxelData,
     min_height: i32,
     chunk_lod: ChunkLod,
-) -> Option<(Mesh, Vec<Vec3>, Vec<[u32; 3]>)> {
+) -> MeshResult {
+    let opaque_mesh = get_mesh_for_blocks(
+        &[
+            BlockType::Stone,
+            BlockType::Grass,
+            BlockType::Log,
+            BlockType::Snow,
+        ],
+        voxel_data,
+        min_height,
+        chunk_lod,
+    );
+
+    let transparent_mesh = get_mesh_for_blocks(
+        &[BlockType::Leaf],
+        voxel_data,
+        min_height,
+        chunk_lod,
+    );
+
+    MeshResult {
+        opaque_mesh,
+        transparent_mesh,
+    }
+}
+
+fn get_mesh_for_blocks(
+    blocks: &[BlockType],
+    voxel_data: &VoxelData,
+    min_height: i32,
+    chunk_lod: ChunkLod,
+) -> Option<Mesh> {
     let mut mesh =
         Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::all());
 
@@ -20,19 +59,7 @@ pub fn generate_mesh(
     let mut uvs: Vec<[f32; 2]> = Vec::new();
     let mut texture_ids: Vec<u32> = Vec::new();
 
-    fn rotate_into_direction<T: Vec3Swizzles>(
-        vector: T,
-        direction: IVec3,
-    ) -> T {
-        match direction {
-            IVec3::X | IVec3::NEG_X => vector.xzy(),
-            IVec3::Y | IVec3::NEG_Y => vector.yxz(),
-            IVec3::Z | IVec3::NEG_Z => vector.zyx(),
-            _ => vector,
-        }
-    }
-
-    let mut generate_sides = |direction: IVec3| {
+    let mut generate_sides = |direction: IVec3, block_face: BlockFace| {
         for i in 1..CHUNK_SIZE + 1 {
             let mut done_faces = [[false; CHUNK_SIZE]; CHUNK_SIZE];
             for j in 1..CHUNK_SIZE + 1 {
@@ -48,16 +75,18 @@ pub fn generate_mesh(
                     let width_pos = (current_pos * width_dir).max_element();
                     let height_pos = (current_pos * height_dir).max_element();
 
+                    let current_block = voxel_data.get_block(current_pos);
+
                     let [face_x, face_y] =
                         [width_pos as usize - 1, height_pos as usize - 1];
                     if done_faces[face_x][face_y]
-                        || blocks.is_air(current_pos)
-                        || !blocks.is_air(current_pos + direction)
+                        || !blocks.contains(&current_block)
+                        || voxel_data
+                            .get_block(current_pos + direction)
+                            .is_covering_for(&current_block)
                     {
                         continue;
                     }
-
-                    let current_block = blocks.get_block(current_pos);
 
                     let mut height = 1;
                     let mut width = 1;
@@ -65,11 +94,14 @@ pub fn generate_mesh(
                     while height_pos + height <= CHUNK_SIZE as i32
                         && !done_faces[width_pos as usize - 1]
                             [height_pos as usize + height as usize - 1]
-                        && blocks.get_block(current_pos + (height_dir * height))
+                        && voxel_data
+                            .get_block(current_pos + (height_dir * height))
                             == current_block
-                        && blocks.is_air(
-                            current_pos + (height_dir * height) + direction,
-                        )
+                        && !voxel_data
+                            .get_block(
+                                current_pos + (height_dir * height) + direction,
+                            )
+                            .is_covering_for(&current_block)
                     {
                         height += 1;
                     }
@@ -81,17 +113,19 @@ pub fn generate_mesh(
                                 height_pos as usize + height as usize - 1,
                             ];
                             !done_faces[face_x][face_y]
-                                && blocks.get_block(
+                                && voxel_data.get_block(
                                     current_pos
                                         + (width_dir * width as i32)
                                         + (height_dir * height as i32),
                                 ) == current_block
-                                && blocks.is_air(
-                                    current_pos
-                                        + (width_dir * width as i32)
-                                        + (height_dir * height as i32)
-                                        + direction,
-                                )
+                                && !voxel_data
+                                    .get_block(
+                                        current_pos
+                                            + (width_dir * width as i32)
+                                            + (height_dir * height as i32)
+                                            + direction,
+                                    )
+                                    .is_covering_for(&current_block)
                         })
                     {
                         width += 1;
@@ -150,13 +184,18 @@ pub fn generate_mesh(
                         direction.as_vec3().to_array(),
                     ]);
 
-                    let texture_id = current_block.get_texture_id();
+                    let texture_id = current_block.get_texture_id(block_face);
 
                     texture_ids.extend_from_slice(&[
                         texture_id, texture_id, texture_id, texture_id,
                     ]);
 
-                    let invert = !direction.min_element() < 0;
+                    let mut invert = !direction.min_element() < 0;
+
+                    if matches!(block_face, BlockFace::Right | BlockFace::Left)
+                    {
+                        invert = !invert;
+                    }
 
                     triangles.extend_from_slice(&[
                         [
@@ -175,12 +214,12 @@ pub fn generate_mesh(
         }
     };
 
-    generate_sides(IVec3::X);
-    generate_sides(IVec3::NEG_X);
-    generate_sides(IVec3::Z);
-    generate_sides(IVec3::NEG_Z);
-    generate_sides(IVec3::Y);
-    generate_sides(IVec3::NEG_Y);
+    generate_sides(IVec3::X, BlockFace::Right);
+    generate_sides(IVec3::NEG_X, BlockFace::Left);
+    generate_sides(IVec3::Z, BlockFace::Front);
+    generate_sides(IVec3::NEG_Z, BlockFace::Back);
+    generate_sides(IVec3::Y, BlockFace::Top);
+    generate_sides(IVec3::NEG_Y, BlockFace::Bottom);
 
     if triangles.is_empty() {
         return None;
@@ -207,16 +246,6 @@ pub fn generate_mesh(
         mesh_triangles.push(triangle[2]);
     }
 
-    let collider_positions = if chunk_lod == ChunkLod::Full {
-        positions
-            .clone()
-            .iter()
-            .map(|position| Vec3::new(position[0], position[1], position[2]))
-            .collect()
-    } else {
-        Vec::new()
-    };
-
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
@@ -224,13 +253,14 @@ pub fn generate_mesh(
 
     mesh.insert_indices(Indices::U32(mesh_triangles));
 
-    Some((
-        mesh,
-        collider_positions,
-        if chunk_lod == ChunkLod::Full {
-            triangles
-        } else {
-            Vec::new()
-        },
-    ))
+    Some(mesh)
+}
+
+fn rotate_into_direction<T: Vec3Swizzles>(vector: T, direction: IVec3) -> T {
+    match direction {
+        IVec3::X | IVec3::NEG_X => vector.xyz(),
+        IVec3::Y | IVec3::NEG_Y => vector.yxz(),
+        IVec3::Z | IVec3::NEG_Z => vector.zyx(),
+        _ => vector,
+    }
 }

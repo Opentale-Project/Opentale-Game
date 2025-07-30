@@ -1,11 +1,10 @@
-use bevy::render::mesh::Mesh;
-
-use crate::world_generation::chunk_loading::{
-    chunk_tree::ChunkTreePos, lod_position::LodPosition,
+use crate::world_generation::{
+    chunk_generation::mesh_generation::MeshResult,
+    chunk_loading::{chunk_tree::ChunkTreePos, lod_position::LodPosition},
 };
 
 pub struct ChunkGenerationResult {
-    pub mesh: Option<Mesh>,
+    pub mesh_result: MeshResult,
     pub generate_above: bool,
     pub chunk_pos: LodPosition,
     pub chunk_tree_position: ChunkTreePos,

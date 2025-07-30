@@ -21,11 +21,6 @@ impl Default for VoxelData {
 }
 
 impl VoxelData {
-    pub fn is_air<T: Into<IVec3>>(&self, position: T) -> bool {
-        let index = Self::position_to_indexes(position);
-        self.array[index] == BlockType::Air
-    }
-
     pub fn get_block<T: Into<IVec3>>(&self, position: T) -> BlockType {
         let index = Self::position_to_indexes(position);
         self.array[index]

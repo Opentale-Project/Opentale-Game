@@ -11,6 +11,7 @@ use crate::world_generation::{
         },
     },
     chunk_loading::chunk_loader_plugin::ChunkLoaderPlugin,
+    generation_assets::GenerationAssets,
     generation_options::GenerationOptionsResource,
 };
 
@@ -29,7 +30,8 @@ impl Plugin for ChunkGenerationPlugin {
                 (
                     queue_chunk_tasks
                         .run_if(resource_exists::<GenerationOptionsResource>),
-                    set_generated_chunks,
+                    set_generated_chunks
+                        .run_if(resource_exists::<GenerationAssets>),
                     set_generated_caches,
                 ),
             );

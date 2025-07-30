@@ -49,7 +49,7 @@ impl LSystem<OakEntryType> for OakLSystem {
 
     fn get_block_from_entry(entry: &LSystemEntry<OakEntryType>) -> BlockType {
         match entry.entry_type {
-            OakEntryType::Leaf => BlockType::Grass,
+            OakEntryType::Leaf => BlockType::Leaf,
             _ => BlockType::Log,
         }
     }

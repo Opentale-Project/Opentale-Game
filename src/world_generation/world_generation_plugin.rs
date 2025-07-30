@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use crate::world_generation::{
     chunk_generation::chunk_generation_plugin::ChunkGenerationPlugin,
     generation_assets::{
-        GenerationAssetState, load_generation_assets, setup_array_texture,
+        GenerationAssetState, load_block_texture_assets, setup_array_texture,
     },
     world_generation_state::{
         WorldGenerationState, check_world_done_initializing,
@@ -19,7 +19,7 @@ impl Plugin for WorldGenerationPlugin {
             .init_state::<WorldGenerationState>()
             .add_systems(
                 OnEnter(GenerationAssetState::Unloaded),
-                load_generation_assets,
+                load_block_texture_assets,
             )
             .add_systems(
                 Update,
