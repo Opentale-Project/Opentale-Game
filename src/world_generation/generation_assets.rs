@@ -7,7 +7,10 @@ use bevy::{
     },
     image::{Image, ImageAddressMode, ImageSampler, ImageSamplerDescriptor},
     pbr::{ExtendedMaterial, StandardMaterial},
-    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
+    render::{
+        alpha::AlphaMode,
+        render_resource::{Extent3d, TextureDimension, TextureFormat},
+    },
     state::state::{NextState, States},
     utils::default,
 };
@@ -22,7 +25,9 @@ pub struct BlockTextureAssets {
 
 #[derive(Resource)]
 pub struct GenerationAssets {
-    pub material:
+    pub opaque_material:
+        Handle<ExtendedMaterial<StandardMaterial, ArrayTextureMaterial>>,
+    pub transparent_material:
         Handle<ExtendedMaterial<StandardMaterial, ArrayTextureMaterial>>,
     pub texture_handle: Handle<Image>,
 }
@@ -47,6 +52,9 @@ pub fn load_block_texture_assets(
     block_textures.push(asset_server.load("snow.png"));
     block_textures.push(asset_server.load("sassafras_log.png"));
     block_textures.push(asset_server.load("sassafras_log_top.png"));
+    block_textures.push(asset_server.load("default_leaves.png"));
+    block_textures.push(asset_server.load("grass_side.png"));
+    block_textures.push(asset_server.load("default_dirt.png"));
 
     commands.insert_resource(BlockTextureAssets { block_textures });
 
@@ -119,8 +127,24 @@ pub fn setup_array_texture(
     let texture_handle = images.add(array_image);
 
     commands.insert_resource(GenerationAssets {
-        material: materials.add(ExtendedMaterial {
-            base: StandardMaterial::from_color(Color::WHITE),
+        opaque_material: materials.add(ExtendedMaterial {
+            base: StandardMaterial {
+                base_color: Color::NONE,
+                alpha_mode: AlphaMode::Opaque,
+                perceptual_roughness: 1.,
+                ..Default::default()
+            },
+            extension: ArrayTextureMaterial {
+                array_texture: texture_handle.clone(),
+            },
+        }),
+        transparent_material: materials.add(ExtendedMaterial {
+            base: StandardMaterial {
+                base_color: Color::NONE,
+                alpha_mode: AlphaMode::AlphaToCoverage,
+                perceptual_roughness: 1.,
+                ..Default::default()
+            },
             extension: ArrayTextureMaterial {
                 array_texture: texture_handle.clone(),
             },

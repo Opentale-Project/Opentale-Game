@@ -99,10 +99,10 @@ fn generate_chunk(
         country_data,
     );
 
-    let mesh = generate_mesh(&data, min_height, chunk_pos.lod);
+    let mesh_result = generate_mesh(&data, min_height, chunk_pos.lod);
 
     ChunkGenerationResult {
-        mesh: mesh.map(|o| o.0),
+        mesh_result,
         generate_above: more,
         chunk_pos,
         chunk_tree_position: tree_pos,

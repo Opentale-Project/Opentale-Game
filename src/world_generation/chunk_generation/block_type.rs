@@ -7,6 +7,7 @@ pub enum BlockType {
     Grass,
     Log,
     Snow,
+    Leaf,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]
@@ -26,10 +27,26 @@ impl BlockType {
                 BlockFace::Top | BlockFace::Bottom => 4,
                 _ => 3,
             },
-            BlockType::Grass => 0,
+            BlockType::Grass => match block_face {
+                BlockFace::Top => 0,
+                BlockFace::Bottom => 7,
+                _ => 6,
+            },
             BlockType::Stone => 1,
             BlockType::Snow => 2,
+            BlockType::Leaf => 5,
             _ => 0,
+        }
+    }
+
+    pub fn is_covering_for(&self, other: &BlockType) -> bool {
+        if self == other {
+            return true;
+        }
+
+        match self {
+            BlockType::Air | BlockType::Leaf => false,
+            _ => true,
         }
     }
 }

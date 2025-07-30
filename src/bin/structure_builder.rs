@@ -13,7 +13,7 @@ use bevy::{
     },
     picking::pointer::PointerInteraction,
     prelude::*,
-    render::primitives::Aabb,
+    render::mesh::MeshAabb,
 };
 use bevy_inspector_egui::{
     bevy_egui::{EguiContexts, EguiPlugin, EguiPrimaryContextPass},
@@ -203,16 +203,20 @@ fn remesh(
     mut commands: Commands,
 ) {
     for entity in mesh_entities {
-        let Some((generated_mesh, positions, ..)) =
-            generate_mesh(&voxel_data.voxel_data, 0, ChunkLod::Full)
-        else {
+        let mesh_result =
+            generate_mesh(&voxel_data.voxel_data, 0, ChunkLod::Full);
+
+        let Some(mesh) = mesh_result.opaque_mesh else {
             return;
         };
 
-        commands.entity(entity).insert((
-            Mesh3d(meshes.add(generated_mesh)),
-            Aabb::enclosing(positions).unwrap(),
-        ));
+        let Some(aabb) = mesh.compute_aabb() else {
+            return;
+        };
+
+        commands
+            .entity(entity)
+            .insert((Mesh3d(meshes.add(mesh)), aabb));
     }
 }
 
