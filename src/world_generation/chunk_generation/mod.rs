@@ -1,3 +1,4 @@
+pub mod ambient_occlusion;
 pub mod block_type;
 pub mod chunk;
 pub mod chunk_generation_plugin;

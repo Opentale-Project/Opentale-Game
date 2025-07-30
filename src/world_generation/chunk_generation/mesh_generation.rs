@@ -58,6 +58,7 @@ fn get_mesh_for_blocks(
     let mut triangles: Vec<[u32; 3]> = Vec::new();
     let mut uvs: Vec<[f32; 2]> = Vec::new();
     let mut texture_ids: Vec<u32> = Vec::new();
+    let mut colors: Vec<[f32; 4]> = Vec::new();
 
     let mut generate_sides = |direction: IVec3, block_face: BlockFace| {
         for i in 1..CHUNK_SIZE + 1 {
@@ -88,6 +89,9 @@ fn get_mesh_for_blocks(
                         continue;
                     }
 
+                    let ambient_occlusion = voxel_data
+                        .get_ambiant_occlusion(current_pos, direction);
+
                     let mut height = 1;
                     let mut width = 1;
 
@@ -102,6 +106,10 @@ fn get_mesh_for_blocks(
                                 current_pos + (height_dir * height) + direction,
                             )
                             .is_covering_for(&current_block)
+                        && voxel_data.get_ambiant_occlusion(
+                            current_pos + (height_dir * height),
+                            direction,
+                        ) == ambient_occlusion
                     {
                         height += 1;
                     }
@@ -126,6 +134,12 @@ fn get_mesh_for_blocks(
                                             + direction,
                                     )
                                     .is_covering_for(&current_block)
+                                && voxel_data.get_ambiant_occlusion(
+                                    current_pos
+                                        + (width_dir * width as i32)
+                                        + (height_dir * height as i32),
+                                    direction,
+                                ) == ambient_occlusion
                         })
                     {
                         width += 1;
@@ -197,18 +211,37 @@ fn get_mesh_for_blocks(
                         invert = !invert;
                     }
 
-                    triangles.extend_from_slice(&[
-                        [
-                            positions_count + 0,
-                            positions_count + if invert { 1 } else { 3 },
-                            positions_count + if invert { 3 } else { 1 },
-                        ],
-                        [
-                            positions_count + 1,
-                            positions_count + if invert { 2 } else { 3 },
-                            positions_count + if invert { 3 } else { 2 },
-                        ],
-                    ]);
+                    colors.extend_from_slice(
+                        ambient_occlusion.get_colors().as_slice(),
+                    );
+
+                    if ambient_occlusion.turn_quad() {
+                        triangles.extend_from_slice(&[
+                            [
+                                positions_count + 0,
+                                positions_count + if invert { 1 } else { 2 },
+                                positions_count + if invert { 2 } else { 1 },
+                            ],
+                            [
+                                positions_count + 0,
+                                positions_count + if invert { 2 } else { 3 },
+                                positions_count + if invert { 3 } else { 2 },
+                            ],
+                        ]);
+                    } else {
+                        triangles.extend_from_slice(&[
+                            [
+                                positions_count + 0,
+                                positions_count + if invert { 1 } else { 3 },
+                                positions_count + if invert { 3 } else { 1 },
+                            ],
+                            [
+                                positions_count + 1,
+                                positions_count + if invert { 2 } else { 3 },
+                                positions_count + if invert { 3 } else { 2 },
+                            ],
+                        ]);
+                    }
                 }
             }
         }
@@ -249,6 +282,7 @@ fn get_mesh_for_blocks(
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
     mesh.insert_attribute(ATTRIBUTE_TEXTURE_ID, texture_ids);
 
     mesh.insert_indices(Indices::U32(mesh_triangles));
@@ -256,7 +290,10 @@ fn get_mesh_for_blocks(
     Some(mesh)
 }
 
-fn rotate_into_direction<T: Vec3Swizzles>(vector: T, direction: IVec3) -> T {
+pub fn rotate_into_direction<T: Vec3Swizzles>(
+    vector: T,
+    direction: IVec3,
+) -> T {
     match direction {
         IVec3::X | IVec3::NEG_X => vector.xyz(),
         IVec3::Y | IVec3::NEG_Y => vector.yxz(),
