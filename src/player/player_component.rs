@@ -1,5 +1,9 @@
-use bevy::{prelude::*, render::camera::Exposure};
-use bevy_atmosphere::plugin::AtmosphereCamera;
+use bevy::{
+    core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
+    pbr::Atmosphere,
+    prelude::*,
+    render::camera::Exposure,
+};
 use bevy_panorbit_camera::PanOrbitCamera;
 use bevy_rapier3d::prelude::*;
 
@@ -57,15 +61,21 @@ pub(super) fn spawn_player(
 
     commands.spawn((
         Camera3d::default(),
+        Camera {
+            hdr: true,
+            ..Default::default()
+        },
         Msaa::Sample4,
         Transform::from_xyz(-4.0, 6.5, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
         Projection::Perspective(PerspectiveProjection {
             far: 2f32.powi(20),
             ..default()
         }),
-        Exposure { ev100: 10f32 },
+        Exposure::SUNLIGHT,
+        Tonemapping::TonyMcMapface,
+        Bloom::NATURAL,
         PanOrbitCamera::default(),
-        AtmosphereCamera::default(),
+        Atmosphere::EARTH,
         PlayerCamera,
         Name::new("PlayerCamera"),
     ));

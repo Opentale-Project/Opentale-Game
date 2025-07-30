@@ -17,7 +17,9 @@ pub(super) fn movement(
     )>,
     player_camera: Query<&PanOrbitCamera, With<PlayerCamera>>,
 ) {
-    for (mut controller, mut player, controller_output, mut transform) in &mut players {
+    for (mut controller, mut player, controller_output, mut transform) in
+        &mut players
+    {
         if keyboard_input.just_pressed(KeyCode::KeyF) {
             player.fly = !player.fly;
         }
@@ -36,16 +38,24 @@ pub(super) fn movement(
         last_movement.z *= 0.8;
 
         // Directional movement
-        if keyboard_input.pressed(KeyCode::KeyW) || keyboard_input.pressed(KeyCode::ArrowUp) {
+        if keyboard_input.pressed(KeyCode::KeyW)
+            || keyboard_input.pressed(KeyCode::ArrowUp)
+        {
             move_direction.z -= 1.;
         }
-        if keyboard_input.pressed(KeyCode::KeyA) || keyboard_input.pressed(KeyCode::ArrowLeft) {
+        if keyboard_input.pressed(KeyCode::KeyA)
+            || keyboard_input.pressed(KeyCode::ArrowLeft)
+        {
             move_direction.x -= 1.;
         }
-        if keyboard_input.pressed(KeyCode::KeyS) || keyboard_input.pressed(KeyCode::ArrowDown) {
+        if keyboard_input.pressed(KeyCode::KeyS)
+            || keyboard_input.pressed(KeyCode::ArrowDown)
+        {
             move_direction.z += 1.;
         }
-        if keyboard_input.pressed(KeyCode::KeyD) || keyboard_input.pressed(KeyCode::ArrowRight) {
+        if keyboard_input.pressed(KeyCode::KeyD)
+            || keyboard_input.pressed(KeyCode::ArrowRight)
+        {
             move_direction.x += 1.;
         }
         if player.fly {
@@ -64,16 +74,21 @@ pub(super) fn movement(
         };
 
         if player.fly {
-            movement_speed *= 50.;
+            movement_speed *= 10.;
         }
 
         if let Ok(player_camera) = player_camera.single() {
             // Rotate vector to camera
-            let rotation = Quat::from_rotation_y(player_camera.yaw.unwrap_or(0.));
-            move_direction = rotation.mul_vec3(move_direction.normalize_or_zero() * movement_speed);
+            let rotation =
+                Quat::from_rotation_y(player_camera.yaw.unwrap_or(0.));
+            move_direction = rotation
+                .mul_vec3(move_direction.normalize_or_zero() * movement_speed);
         }
 
-        if !player.fly && controller_output.is_some() && !controller_output.unwrap().grounded {
+        if !player.fly
+            && controller_output.is_some()
+            && !controller_output.unwrap().grounded
+        {
             move_direction.y -= 0.4;
         }
 
@@ -94,8 +109,12 @@ pub(super) fn movement(
         player.velocity = movement;
 
         move_direction.y = 0.0;
-        if move_direction.max_element() > 0.0 || move_direction.min_element() < 0.0 {
-            transform.rotation = Quat::from_rotation_y(-move_direction.xz().to_angle() - PI / 2.0);
+        if move_direction.max_element() > 0.0
+            || move_direction.min_element() < 0.0
+        {
+            transform.rotation = Quat::from_rotation_y(
+                -move_direction.xz().to_angle() - PI / 2.0,
+            );
         }
     }
 }
@@ -104,7 +123,9 @@ pub(super) fn move_body(
     player: Query<&Transform, (With<Player>, Without<PlayerBody>)>,
     mut player_body: Query<&mut Transform, (With<PlayerBody>, Without<Player>)>,
 ) {
-    let (Ok(player), Ok(mut player_body)) = (player.single(), player_body.single_mut()) else {
+    let (Ok(player), Ok(mut player_body)) =
+        (player.single(), player_body.single_mut())
+    else {
         return;
     };
 

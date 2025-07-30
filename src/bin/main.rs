@@ -1,8 +1,8 @@
 use bevy::pbr::ExtendedMaterial;
+use bevy::pbr::light_consts::lux;
 use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::prelude::*;
 use bevy::window::PresentMode;
-use bevy_atmosphere::prelude::AtmospherePlugin;
 use bevy_inspector_egui::bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::PanOrbitCameraPlugin;
@@ -30,7 +30,6 @@ fn main() {
                 .set(ImagePlugin::default_nearest()),
             PanOrbitCameraPlugin,
             WorldGenerationPlugin,
-            AtmospherePlugin,
             RapierPhysicsPlugin::<NoUserData>::default(),
             //RapierDebugRenderPlugin::default(),
             PlayerPlugin,
@@ -56,7 +55,7 @@ fn setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
     commands.spawn((
         DirectionalLight {
             shadows_enabled: true,
-            illuminance: 1000.,
+            illuminance: lux::RAW_SUNLIGHT,
             ..default()
         },
         Transform {
@@ -69,7 +68,7 @@ fn setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
 
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
-        brightness: 75f32,
+        brightness: lux::FULL_DAYLIGHT,
         ..default()
     });
 }
