@@ -42,7 +42,7 @@ impl BlockType {
     }
 
     pub fn is_covering_for(&self, other: &BlockType) -> bool {
-        if self == other {
+        if *self == *other {
             return true;
         }
 

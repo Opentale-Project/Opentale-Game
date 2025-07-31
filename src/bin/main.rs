@@ -1,3 +1,4 @@
+use avian3d::PhysicsPlugins;
 use bevy::pbr::ExtendedMaterial;
 use bevy::pbr::light_consts::lux;
 use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
@@ -6,7 +7,6 @@ use bevy::window::PresentMode;
 use bevy_inspector_egui::bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::PanOrbitCameraPlugin;
-use bevy_rapier3d::prelude::{NoUserData, RapierPhysicsPlugin};
 use opentale::animation::animation_plugin::OpentaleAnimationPlugin;
 use opentale::debug_tools::debug_plugin::OpentaleDebugPlugin;
 use opentale::player::player_plugin::PlayerPlugin;
@@ -30,8 +30,7 @@ fn main() {
                 .set(ImagePlugin::default_nearest()),
             PanOrbitCameraPlugin,
             WorldGenerationPlugin,
-            RapierPhysicsPlugin::<NoUserData>::default(),
-            //RapierDebugRenderPlugin::default(),
+            PhysicsPlugins::default(),
             PlayerPlugin,
             WireframePlugin { ..default() },
             OpentaleAnimationPlugin,

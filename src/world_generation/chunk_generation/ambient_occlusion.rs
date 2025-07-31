@@ -7,6 +7,15 @@ pub struct AmbiantOcclusion {
 }
 
 impl AmbiantOcclusion {
+    pub fn new_full() -> Self {
+        AmbiantOcclusion {
+            corner_1: 3,
+            corner_2: 3,
+            corner_3: 3,
+            corner_4: 3,
+        }
+    }
+
     pub fn get_colors(&self) -> [[f32; 4]; 4] {
         let corner_1 = (self.corner_1 as f32 / 4.) + 0.25;
         let corner_2 = (self.corner_2 as f32 / 4.) + 0.25;

@@ -1,3 +1,4 @@
+use avian3d::prelude::{CollisionMargin, RigidBody};
 use bevy::{
     prelude::*,
     tasks::{Task, TaskPool, TaskPoolBuilder},
@@ -61,6 +62,14 @@ pub fn set_generated_chunks(
             },
             Transform::from_translation(chunk_pos.to_absolute()),
         ));
+
+        if let Some(collider) = chunk_generation_result.mesh_result.collider {
+            current_entity.insert((
+                collider,
+                RigidBody::Static,
+                CollisionMargin(0.01),
+            ));
+        }
 
         // let triangle_count = mesh.indices().unwrap().len() / 3;
         // let result_lod = chunk_generation_result.chunk_pos.lod.usize();
