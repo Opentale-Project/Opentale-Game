@@ -205,8 +205,7 @@ fn remesh(
     mut commands: Commands,
 ) {
     for entity in mesh_entities {
-        let mesh_result =
-            generate_mesh(&voxel_data.voxel_data, 0, ChunkLod::Full);
+        let mesh_result = generate_mesh(&voxel_data.voxel_data, ChunkLod::Full);
 
         let Some(mesh) = mesh_result.opaque_mesh else {
             return;

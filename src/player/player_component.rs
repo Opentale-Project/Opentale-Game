@@ -2,22 +2,24 @@ use bevy::{
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
     pbr::Atmosphere,
     prelude::*,
-    render::camera::Exposure,
+    render::{
+        camera::Exposure,
+        view::{ColorGrading, ColorGradingGlobal},
+    },
 };
 use bevy_panorbit_camera::PanOrbitCamera;
-use bevy_rapier3d::prelude::*;
 
 use crate::{
-    player::player_state::PlayerState,
-    world_generation::{
-        chunk_generation::VOXEL_SIZE, chunk_loading::chunk_loader::ChunkLoader,
+    physics::{
+        collider::Collider, physics_object::DynamicPhysicsObject,
+        physics_position::PhysicsPosition,
     },
+    player::player_state::PlayerState,
+    world_generation::chunk_loading::chunk_loader::ChunkLoader,
 };
 
 #[derive(Component)]
 pub struct Player {
-    pub velocity: Vec3,
-    pub jumped: bool,
     pub fly: bool,
 }
 
@@ -38,23 +40,17 @@ pub(super) fn spawn_player(
 
     // Player
     commands.spawn((
-        RigidBody::KinematicPositionBased,
+        DynamicPhysicsObject {
+            step_height: 1.1,
+            ..Default::default()
+        },
+        PhysicsPosition {
+            position: Vec3::new(0., 2200., 0.),
+            ..Default::default()
+        },
         Transform::from_xyz(0., 2200., 0.),
-        Collider::cuboid(0.4, 0.9, 0.4),
-        KinematicCharacterController {
-            offset: CharacterLength::Absolute(0.01),
-            autostep: Some(CharacterAutostep {
-                min_width: CharacterLength::Absolute(0.01),
-                max_height: CharacterLength::Absolute(VOXEL_SIZE + 0.1),
-                include_dynamic_bodies: true,
-            }),
-            ..default()
-        },
-        Player {
-            velocity: Vec3::ZERO,
-            jumped: false,
-            fly: true,
-        },
+        Collider::aabb(Vec3::new(0.8, 1.8, 0.8), Vec3::ZERO),
+        Player { fly: false },
         ChunkLoader::default(),
         Name::new("Player"),
     ));
@@ -63,6 +59,13 @@ pub(super) fn spawn_player(
         Camera3d::default(),
         Camera {
             hdr: true,
+            ..Default::default()
+        },
+        ColorGrading {
+            global: ColorGradingGlobal {
+                post_saturation: 1.15,
+                ..Default::default()
+            },
             ..Default::default()
         },
         Msaa::Sample4,

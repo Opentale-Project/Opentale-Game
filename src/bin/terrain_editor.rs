@@ -1,8 +1,5 @@
 use bevy::prelude::*;
-use bevy_inspector_egui::{
-    bevy_egui::{EguiContexts, EguiPlugin, EguiPrimaryContextPass},
-    egui::{self},
-};
+use bevy_egui::{EguiContexts, EguiPlugin, EguiPrimaryContextPass};
 use opentale::debug_tools::terrain_node_editor::terrain_graph_resource::TerrainGraphResource;
 
 fn main() {

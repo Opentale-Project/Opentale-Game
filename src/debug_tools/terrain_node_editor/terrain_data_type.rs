@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 
-use bevy_inspector_egui::egui;
 use egui_node_editor::DataTypeTrait;
 use serde::{Deserialize, Serialize};
 

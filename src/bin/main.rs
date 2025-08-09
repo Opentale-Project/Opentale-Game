@@ -6,9 +6,9 @@ use bevy::window::PresentMode;
 use bevy_inspector_egui::bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::PanOrbitCameraPlugin;
-use bevy_rapier3d::prelude::{NoUserData, RapierPhysicsPlugin};
 use opentale::animation::animation_plugin::OpentaleAnimationPlugin;
 use opentale::debug_tools::debug_plugin::OpentaleDebugPlugin;
+use opentale::physics::physics_plugin::PhysicsPlugin;
 use opentale::player::player_plugin::PlayerPlugin;
 use opentale::ui::game_ui_plugin::GameUiPlugin;
 use opentale::world_generation::array_texture::ArrayTextureMaterial;
@@ -30,8 +30,7 @@ fn main() {
                 .set(ImagePlugin::default_nearest()),
             PanOrbitCameraPlugin,
             WorldGenerationPlugin,
-            RapierPhysicsPlugin::<NoUserData>::default(),
-            //RapierDebugRenderPlugin::default(),
+            PhysicsPlugin,
             PlayerPlugin,
             WireframePlugin { ..default() },
             OpentaleAnimationPlugin,

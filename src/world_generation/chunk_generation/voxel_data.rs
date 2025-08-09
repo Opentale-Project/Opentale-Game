@@ -34,6 +34,28 @@ impl VoxelData {
         self.array[index] = block;
     }
 
+    pub fn is_next_to_air<T: Into<IVec3>>(&self, position: T) -> bool {
+        let position: IVec3 = position.into();
+
+        if self.array[Self::position_to_indexes(position + IVec3::X)]
+            == BlockType::Air
+            || self.array[Self::position_to_indexes(position - IVec3::X)]
+                == BlockType::Air
+            || self.array[Self::position_to_indexes(position + IVec3::Y)]
+                == BlockType::Air
+            || self.array[Self::position_to_indexes(position - IVec3::Y)]
+                == BlockType::Air
+            || self.array[Self::position_to_indexes(position + IVec3::Z)]
+                == BlockType::Air
+            || self.array[Self::position_to_indexes(position - IVec3::Z)]
+                == BlockType::Air
+        {
+            return true;
+        }
+
+        false
+    }
+
     fn position_to_indexes<T: Into<IVec3>>(position: T) -> usize {
         let position: IVec3 = position.into();
         let index = position.x as usize

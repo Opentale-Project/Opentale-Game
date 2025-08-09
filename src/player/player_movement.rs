@@ -2,40 +2,43 @@ use std::f32::consts::PI;
 
 use bevy::prelude::*;
 use bevy_panorbit_camera::PanOrbitCamera;
-use bevy_rapier3d::prelude::*;
 
-use crate::player::player_component::{Player, PlayerBody, PlayerCamera};
+use crate::{
+    physics::{
+        physics_object::DynamicPhysicsObject, physics_position::PhysicsPosition,
+    },
+    player::player_component::{Player, PlayerBody, PlayerCamera},
+};
 
 pub(super) fn movement(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
     mut players: Query<(
-        &mut KinematicCharacterController,
         &mut Player,
-        Option<&KinematicCharacterControllerOutput>,
+        &mut PhysicsPosition,
+        &mut DynamicPhysicsObject,
         &mut Transform,
     )>,
     player_camera: Query<&PanOrbitCamera, With<PlayerCamera>>,
+    time: Res<Time>,
 ) {
-    for (mut controller, mut player, controller_output, mut transform) in
-        &mut players
+    for (
+        mut player,
+        mut physics_position,
+        mut physics_object,
+        mut player_transform,
+    ) in &mut players
     {
+        let mut move_direction = Vec3::ZERO;
+
+        let grounded = physics_object.touching_sides.y < 0;
+
         if keyboard_input.just_pressed(KeyCode::KeyF) {
             player.fly = !player.fly;
         }
 
-        let mut move_direction = Vec3::ZERO;
-        let mut last_movement = player.velocity;
-
-        if let Some(controller_output) = controller_output {
-            if player.jumped && controller_output.grounded {
-                player.jumped = false;
-            }
+        if grounded || player.fly {
+            physics_position.velocity.y = 0.;
         }
-
-        last_movement.x *= 0.8;
-        last_movement.y *= if player.fly { 0.8 } else { 0.98 };
-        last_movement.z *= 0.8;
 
         // Directional movement
         if keyboard_input.pressed(KeyCode::KeyW)
@@ -58,19 +61,18 @@ pub(super) fn movement(
         {
             move_direction.x += 1.;
         }
-        if player.fly {
-            if keyboard_input.pressed(KeyCode::KeyE) {
-                move_direction.y += 1.;
-            }
-            if keyboard_input.pressed(KeyCode::KeyQ) {
-                move_direction.y -= 1.;
-            }
+
+        if player.fly && keyboard_input.pressed(KeyCode::KeyE) {
+            move_direction.y += 1.;
+        }
+        if player.fly && keyboard_input.pressed(KeyCode::KeyQ) {
+            move_direction.y -= 1.;
         }
 
         let mut movement_speed = if keyboard_input.pressed(KeyCode::ShiftLeft) {
-            2.
+            15.
         } else {
-            1.
+            7.5
         };
 
         if player.fly {
@@ -83,38 +85,31 @@ pub(super) fn movement(
                 Quat::from_rotation_y(player_camera.yaw.unwrap_or(0.));
             move_direction = rotation
                 .mul_vec3(move_direction.normalize_or_zero() * movement_speed);
-        }
 
-        if !player.fly
-            && controller_output.is_some()
-            && !controller_output.unwrap().grounded
-        {
-            move_direction.y -= 0.4;
+            if move_direction.xz() != Vec2::ZERO {
+                player_transform.rotation = Quat::from_rotation_y(
+                    -move_direction.xz().to_angle() - PI * 0.5,
+                );
+            }
         }
-
-        move_direction *= time.delta_secs();
 
         // Jump if space pressed and the player is close enough to the ground
-        if keyboard_input.pressed(KeyCode::Space)
-            && controller_output.is_some()
-            && controller_output.unwrap().grounded
-            && !player.jumped
-        {
-            move_direction.y = 0.1;
-            player.jumped = true;
+        if !player.fly && grounded && keyboard_input.pressed(KeyCode::Space) {
+            physics_position.velocity.y += 10.;
+            physics_object.touching_sides.y = 0;
         }
 
-        let movement = move_direction + last_movement;
-        controller.translation = Some(movement);
-        player.velocity = movement;
-
-        move_direction.y = 0.0;
-        if move_direction.max_element() > 0.0
-            || move_direction.min_element() < 0.0
-        {
-            transform.rotation = Quat::from_rotation_y(
-                -move_direction.xz().to_angle() - PI / 2.0,
-            );
+        physics_position.velocity.x = move_direction.x;
+        physics_position.velocity.z = move_direction.z;
+        if !player.fly {
+            if grounded {
+                physics_position.velocity.y -= 1. * time.delta_secs();
+            } else {
+                physics_position.velocity.y -=
+                    (20. * time.delta_secs()).max(-60.);
+            }
+        } else {
+            physics_position.velocity.y = move_direction.y;
         }
     }
 }
@@ -129,7 +124,6 @@ pub(super) fn move_body(
         return;
     };
 
-    let difference = player.translation - player_body.translation;
-    player_body.translation += difference * 0.25;
+    player_body.translation = player.translation;
     player_body.rotation = player_body.rotation.lerp(player.rotation, 0.25);
 }

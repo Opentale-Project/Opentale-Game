@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::anyhow;
 use bevy::prelude::*;
-use bevy_inspector_egui::egui::Ui;
+use egui::Ui;
 use egui_node_editor::{GraphEditorState, GraphResponse, Node, OutputId};
 use ron::ser::PrettyConfig;
 
@@ -28,15 +28,21 @@ use crate::{
     },
 };
 
-type TerrainGraphState =
-    GraphEditorState<TerrainNodeData, TerrainDataType, TerrainValueType, TerrainNodeTemplate, ()>;
+type TerrainGraphState = GraphEditorState<
+    TerrainNodeData,
+    TerrainDataType,
+    TerrainValueType,
+    TerrainNodeTemplate,
+    (),
+>;
 
 #[derive(Resource, Deref, DerefMut)]
 pub struct TerrainGraphResource {
     state: TerrainGraphState,
 }
 
-const TERRAIN_NOISE_GRAPH_FILE_PATH: &'static str = "assets/terrain_noise_graph.ron";
+const TERRAIN_NOISE_GRAPH_FILE_PATH: &'static str =
+    "assets/terrain_noise_graph.ron";
 
 impl Default for TerrainGraphResource {
     fn default() -> Self {
@@ -63,9 +69,16 @@ impl Default for TerrainGraphResource {
 }
 
 impl TerrainGraphResource {
-    pub fn draw(&mut self, ui: &mut Ui) -> GraphResponse<TerrainResponse, TerrainNodeData> {
-        self.state
-            .draw_graph_editor(ui, AllTerrainNodeTemplates, &mut (), Vec::default())
+    pub fn draw(
+        &mut self,
+        ui: &mut Ui,
+    ) -> GraphResponse<TerrainResponse, TerrainNodeData> {
+        self.state.draw_graph_editor(
+            ui,
+            AllTerrainNodeTemplates,
+            &mut (),
+            Vec::default(),
+        )
     }
 
     pub fn save(&self) -> Result<(), anyhow::Error> {
@@ -73,11 +86,15 @@ impl TerrainGraphResource {
             .graph
             .nodes
             .iter()
-            .filter(|node| node.1.user_data.template == TerrainNodeTemplate::Output)
+            .filter(|node| {
+                node.1.user_data.template == TerrainNodeTemplate::Output
+            })
             .collect::<Vec<_>>();
 
         if output_nodes.len() != 1 {
-            return Err(anyhow!("Too many or too little number of output nodes!"));
+            return Err(anyhow!(
+                "Too many or too little number of output nodes!"
+            ));
         }
 
         let output_node = output_nodes.first();
@@ -88,18 +105,27 @@ impl TerrainGraphResource {
         let mut noise_array = Vec::new();
         let mut cache = HashMap::new();
 
-        let start_index =
-            get_terrain_noise_index(output_node.1, &mut noise_array, &self.graph, &mut cache);
+        let start_index = get_terrain_noise_index(
+            output_node.1,
+            &mut noise_array,
+            &self.graph,
+            &mut cache,
+        );
 
-        let terrain_noise = TerrainNoise::new(start_index.get_noise_index(), noise_array);
+        let terrain_noise =
+            TerrainNoise::new(start_index.get_noise_index(), noise_array);
 
         let mut file = File::create(TERRAIN_NOISE_FILE_PATH)?;
-        let text = ron::ser::to_string_pretty(&terrain_noise, PrettyConfig::default())?;
+        let text = ron::ser::to_string_pretty(
+            &terrain_noise,
+            PrettyConfig::default(),
+        )?;
         file.write_all(text.as_bytes())?;
         file.flush()?;
 
         let mut file = File::create(TERRAIN_NOISE_GRAPH_FILE_PATH)?;
-        let text = ron::ser::to_string_pretty(&self.state, PrettyConfig::default())?;
+        let text =
+            ron::ser::to_string_pretty(&self.state, PrettyConfig::default())?;
         file.write_all(text.as_bytes())?;
         file.flush()?;
 
@@ -126,7 +152,8 @@ fn get_terrain_noise_index(
         }
 
         let node = &graph[graph[connection].node];
-        let value = get_terrain_noise_index(node, noise_array, graph, value_cache);
+        let value =
+            get_terrain_noise_index(node, noise_array, graph, value_cache);
         value_cache.insert(connection, value);
         value
     };
@@ -188,7 +215,8 @@ fn get_terrain_noise_index(
             let noise_index = get_input_value("noise").get_noise_index();
             let scale = get_input_value("scale").get_f64_value();
             let index = noise_array.len();
-            noise_array.push(TerrainNoiseType::ScalePoint { noise_index, scale });
+            noise_array
+                .push(TerrainNoiseType::ScalePoint { noise_index, scale });
             TerrainValueType::NoiseF64x2 { noise_index: index }
         }
         TerrainNodeTemplate::GFT => {

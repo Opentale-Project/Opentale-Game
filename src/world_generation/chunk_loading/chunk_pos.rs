@@ -1,7 +1,10 @@
 use bevy::prelude::*;
 
 use crate::world_generation::{
-    chunk_generation::{CHUNK_SIZE, VOXEL_SIZE, chunk_lod::MAX_LOD},
+    chunk_generation::{
+        CHUNK_SIZE, VOXEL_SIZE,
+        chunk_lod::{ChunkLod, MAX_LOD},
+    },
     chunk_loading::chunk_tree::ChunkTreePos,
 };
 
@@ -26,9 +29,13 @@ impl AbsoluteChunkPos {
         )
     }
 
-    pub fn to_absolute(&self) -> Vec3 {
+    pub fn to_absolute(&self, min_height: i32, chunk_lod: ChunkLod) -> Vec3 {
         let self_absolute = self.as_vec2() * VOXEL_SIZE * CHUNK_SIZE as f32;
-        Vec3::new(self_absolute.x, 0., self_absolute.y)
+        Vec3::new(
+            self_absolute.x,
+            min_height as f32 * VOXEL_SIZE * chunk_lod.multiplier_f32(),
+            self_absolute.y,
+        )
     }
 }
 

@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use bevy_inspector_egui::egui::{self, DragValue};
+use egui::DragValue;
 use egui_node_editor::{NodeId, WidgetValueTrait};
 use serde::{Deserialize, Serialize};
 
