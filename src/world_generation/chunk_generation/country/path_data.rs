@@ -233,18 +233,24 @@ impl GenerationCacheItem<CountryPosition> for PathData {
 
         let path_finding_lod = ChunkLod::Thirtytwoth;
 
+        let y_start_pos = if key.y % 2 == 0 && key.x % 2 == 0 { current_structure_cache.city_location } else { top_structure_cache.city_location };
+        let y_end_pos = if key.y % 2 == 0 && key.x % 2 == 0 { top_structure_cache.city_location } else { current_structure_cache.city_location };
+
+        let x_start_pos = if key.y % 2 == 0 && key.x % 2 == 0 { current_structure_cache.city_location } else { right_structure_cache.city_location };
+        let x_end_pos = if key.y % 2 == 0 && key.x % 2 == 0 { right_structure_cache.city_location } else { current_structure_cache.city_location };
+
         Self {
             paths: vec![
                 PathData::generate_path(
-                    current_structure_cache.city_location,
-                    top_structure_cache.city_location,
+                    y_start_pos,
+                    y_end_pos,
                     [*key, *top_country_pos],
                     path_finding_lod,
                     generation_options,
                 ),
                 PathData::generate_path(
-                    current_structure_cache.city_location,
-                    right_structure_cache.city_location,
+                    x_start_pos,
+                    x_end_pos,
                     [*key, *right_country_pos],
                     path_finding_lod,
                     generation_options,
@@ -280,8 +286,8 @@ impl PathData {
 
         let distance_to_end = |pos: IVec2| -> i32 {
             let diff = (end_pos - pos).abs();
-            let smaller = if diff.x < diff.y { diff.x } else { diff.y };
-            let bigger = if diff.x > diff.y { diff.x } else { diff.y };
+            let smaller = diff.min_element();
+            let bigger = diff.max_element();
             bigger * 10 + smaller * 4
         };
 
@@ -325,7 +331,7 @@ impl PathData {
         let mut previous = HashMap::new();
         let mut weights = HashMap::new();
 
-        weights.insert(start_pos, 0);
+        weights.insert((start_pos, IVec2::ZERO), 0);
         queue.push(AStarCandidate {
             estimated_weight: distance_to_end(start_pos),
             real_weight: 0,
@@ -383,19 +389,19 @@ impl PathData {
                     + (height_difference * 40.) as i32
                     + (steepness * 20.) as i32; //((total_steepness * 0.6).max(0.) * 10.0) as i32;
                 if weights
-                    .get(&next)
+                    .get(&(next, direction))
                     .map(|&weight| real_weight < weight)
                     .unwrap_or(true)
                 {
                     let estimated_weight = real_weight + distance_to_end(next);
-                    weights.insert(next, real_weight);
+                    weights.insert((next, direction), real_weight);
                     queue.push(AStarCandidate {
                         estimated_weight,
                         real_weight,
                         state: next,
                         direction,
                     });
-                    previous.insert(next, current);
+                    previous.insert((next, direction), (current, current_direction));
                 }
             }
         }
@@ -404,87 +410,51 @@ impl PathData {
 
         info!("DONE: {}s", elapsed.as_secs_f32());
 
-        if previous.get(&end_pos).is_some() {
-            let mut min_x = 0;
-            let mut min_y = 0;
-            let mut max_x = 0;
-            let mut max_y = 0;
+        if let Some((_, (parent, parent_direction))) = previous.iter().find(|((pos, ..), ..)| *pos == end_pos) {
+            let mut points = vec![end_pos * path_finding_lod.multiplier_i32(), *parent * path_finding_lod.multiplier_i32()];
+            let mut min = end_pos.min(*parent);
+            let mut max = end_pos.max(*parent);
 
-            let mut check_min_max = |pos: IVec2| {
-                min_x = min_x.min(pos.x);
-                min_y = min_y.min(pos.y);
-                max_x = max_x.max(pos.x);
-                max_y = max_y.max(pos.y);
-            };
+            let mut current = *parent;
+            let mut current_direction = *parent_direction;
 
-            let mut current = end_pos;
-            let mut path: Vec<PathLine> = vec![];
+            while let Some((parent, parent_direction)) = previous.get(&(current, current_direction)) {
+                points.push(*parent * path_finding_lod.multiplier_i32());
+                current = *parent;
+                current_direction = *parent_direction;
 
-            let mut points: Vec<IVec2> = vec![];
-
-            if let Some(parent) = previous.get(&current) {
-                points.push(
-                    (current - (*parent - current))
-                        * path_finding_lod.multiplier_i32(),
-                );
+                min = min.min(*parent);
+                max = max.max(*parent);
             }
 
-            while current != start_pos {
-                let prev = previous
-                    .get(&current)
-                    .copied()
-                    .expect("We reached the target, but are unable to reconsistute the path");
+            let mut smooth_points = vec![points[0]];
 
-                let dir = prev - current;
+            for i in 0..points.len() - 1 {
+                let start = points[i];
+                let end = points[i + 1];
 
-                let next = current * path_finding_lod.multiplier_i32()
-                    + (dir * path_finding_lod.multiplier_i32()) / 2;
-
-                points.push(next);
-
-                check_min_max(next);
-
-                current = prev;
+                smooth_points.push((start + end) / 2);
             }
 
-            // let mut direction = IVec2::new(0, 0);
+            smooth_points.push(points[points.len() - 1]);
 
-            // let mut chopped_points = Vec::new();
-            //
-            // for i in 1..points.len() {
-            //     let dir = points[i] - points[i - 1];
-            //     if dir != direction {
-            //         chopped_points.push(points[i - 1]);
-            //
-            //         direction = dir;
-            //     }
-            // }
-            //
-            // chopped_points.push(*points.last().unwrap_or(&IVec2::default()));
+            let mut path = vec![];
 
-            //let points = chopped_points;
-
-            let last = current * path_finding_lod.multiplier_i32();
-            //points.push(last);
-            //check_min_max(last);
-
-            if points.len() >= 4 {
-                points.push(last - (points[points.len() - 2] - last));
-
-                for i in 1..points.len() - 2 {
+            if smooth_points.len() >= 4 {
+                for i in 1..smooth_points.len() - 2 {
                     path.push(PathLine::new(
-                        points[i],
-                        points[i + 1],
-                        points[i - 1],
-                        points[i + 2],
+                        smooth_points[i],
+                        smooth_points[i + 1],
+                        smooth_points[i - 1],
+                        smooth_points[i + 2],
                     ));
                 }
             }
 
             Path {
                 lines: path,
-                box_pos_start: IVec2::new(min_x, min_y),
-                box_pos_end: IVec2::new(max_x, max_y),
+                box_pos_start: min * path_finding_lod.multiplier_i32(),
+                box_pos_end: max * path_finding_lod.multiplier_i32(),
             }
         } else {
             info!("NO PATH COULD BE CREATED!");
