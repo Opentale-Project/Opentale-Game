@@ -1,9 +1,9 @@
-use bevy_inspector_egui::egui;
 use egui_node_editor::{Graph, NodeDataTrait, NodeId, NodeResponse};
 use serde::{Deserialize, Serialize};
 
 use crate::debug_tools::terrain_node_editor::{
-    terrain_data_type::TerrainDataType, terrain_node_template::TerrainNodeTemplate,
+    terrain_data_type::TerrainDataType,
+    terrain_node_template::TerrainNodeTemplate,
     terrain_response::TerrainResponse, terrain_value_type::TerrainValueType,
 };
 

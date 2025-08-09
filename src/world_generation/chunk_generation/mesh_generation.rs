@@ -1,3 +1,4 @@
+use crate::physics::collider::Collider;
 use crate::utils::cartesian_product::cube_cartesian_product;
 use crate::world_generation::array_texture::ATTRIBUTE_TEXTURE_ID;
 use crate::world_generation::chunk_generation::ambient_occlusion::AmbiantOcclusion;
@@ -7,7 +8,6 @@ use crate::world_generation::chunk_generation::block_type::{
 use crate::world_generation::chunk_generation::chunk_lod::ChunkLod;
 use crate::world_generation::chunk_generation::voxel_data::VoxelData;
 use crate::world_generation::chunk_generation::{CHUNK_SIZE, VOXEL_SIZE};
-use avian3d::prelude::{Collider, Rotation};
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
 use bevy::render::render_asset::RenderAssetUsages;
@@ -20,7 +20,6 @@ pub struct MeshResult {
 
 pub fn generate_mesh(
     voxel_data: &VoxelData,
-    min_height: i32,
     chunk_lod: ChunkLod,
 ) -> MeshResult {
     let opaque_mesh = get_mesh_for_blocks(
@@ -32,18 +31,12 @@ pub fn generate_mesh(
             BlockType::Dirt,
         ],
         voxel_data,
-        min_height,
         chunk_lod,
         true,
     );
 
-    let transparent_mesh = get_mesh_for_blocks(
-        &[BlockType::Leaf],
-        voxel_data,
-        min_height,
-        chunk_lod,
-        true,
-    );
+    let transparent_mesh =
+        get_mesh_for_blocks(&[BlockType::Leaf], voxel_data, chunk_lod, true);
 
     let collider = if chunk_lod == ChunkLod::Full {
         get_compound_collider(
@@ -56,7 +49,6 @@ pub fn generate_mesh(
                 BlockType::Leaf,
             ],
             voxel_data,
-            min_height,
         )
     } else {
         None
@@ -72,7 +64,6 @@ pub fn generate_mesh(
 fn get_mesh_for_blocks(
     blocks: &[BlockType],
     voxel_data: &VoxelData,
-    min_height: i32,
     chunk_lod: ChunkLod,
     ambiant_occlusion: bool,
 ) -> Option<Mesh> {
@@ -293,10 +284,9 @@ fn get_mesh_for_blocks(
         position[0] =
             (position[0] - 0.5) * VOXEL_SIZE * chunk_lod.multiplier_f32()
                 + VOXEL_SIZE;
-        position[1] = (position[1] + min_height as f32 - 0.5)
-            * VOXEL_SIZE
-            * chunk_lod.multiplier_f32()
-            + VOXEL_SIZE;
+        position[1] =
+            (position[1] - 0.5) * VOXEL_SIZE * chunk_lod.multiplier_f32()
+                + VOXEL_SIZE;
         position[2] =
             (position[2] - 0.5) * VOXEL_SIZE * chunk_lod.multiplier_f32()
                 + VOXEL_SIZE;
@@ -336,9 +326,8 @@ pub fn rotate_into_direction<T: Vec3Swizzles>(
 fn get_compound_collider(
     blocks: &[BlockType],
     voxel_data: &VoxelData,
-    min_height: i32,
 ) -> Option<Collider> {
-    let mut colliders: Vec<(Vec3, Rotation, Collider)> = Vec::new();
+    let mut colliders: Vec<(Vec3, Vec3)> = Vec::new();
     let mut done_blocks =
         [[[false; CHUNK_SIZE + 2]; CHUNK_SIZE + 2]; CHUNK_SIZE + 2];
 
@@ -346,7 +335,10 @@ fn get_compound_collider(
         let current_pos = IVec3::new(x as i32, y as i32, z as i32);
         let current_block = voxel_data.get_block(current_pos);
 
-        if done_blocks[x][y][z] || !blocks.contains(&current_block) {
+        if done_blocks[x][y][z]
+            || !blocks.contains(&current_block)
+            || !voxel_data.is_next_to_air(current_pos)
+        {
             continue;
         }
 
@@ -360,6 +352,8 @@ fn get_compound_collider(
                 &voxel_data
                     .get_block(current_pos + (IVec3::X * x_length as i32)),
             )
+            && voxel_data
+                .is_next_to_air(current_pos + (IVec3::X * x_length as i32))
         {
             x_length += 1;
         }
@@ -371,6 +365,10 @@ fn get_compound_collider(
                         current_pos.with_x(x as i32)
                             + (IVec3::Y * y_length as i32),
                     ))
+                    && voxel_data.is_next_to_air(
+                        current_pos.with_x(x as i32)
+                            + (IVec3::Y * y_length as i32),
+                    )
             })
         {
             y_length += 1;
@@ -384,6 +382,10 @@ fn get_compound_collider(
                             current_pos.with_x(x as i32).with_y(y as i32)
                                 + (IVec3::Z * z_length as i32),
                         ))
+                        && voxel_data.is_next_to_air(
+                            current_pos.with_x(x as i32).with_y(y as i32)
+                                + (IVec3::Z * z_length as i32),
+                        )
                 })
             })
         {
@@ -401,15 +403,15 @@ fn get_compound_collider(
             done_blocks[x + x_inner][y + y_inner][z + z_inner] = true;
         }
 
-        let collider_offset =
-            Vec3::new(x_length as f32, y_length as f32, z_length as f32) * 0.5;
+        let x_length = x_length as f32 * VOXEL_SIZE;
+        let y_length = y_length as f32 * VOXEL_SIZE;
+        let z_length = z_length as f32 * VOXEL_SIZE;
+
+        let collider_offset = Vec3::new(x_length, y_length, z_length) * 0.5;
 
         colliders.push((
-            current_pos.as_vec3()
-                + (Vec3::Y * min_height as f32)
-                + collider_offset,
-            Rotation::default(),
-            Collider::cuboid(x_length as f32, y_length as f32, z_length as f32),
+            Vec3::new(x_length, y_length, z_length),
+            current_pos.as_vec3() * VOXEL_SIZE + collider_offset,
         ));
     }
 
@@ -417,5 +419,5 @@ fn get_compound_collider(
         return None;
     }
 
-    Some(Collider::compound(colliders))
+    Some(Collider::compund(colliders.as_slice()))
 }

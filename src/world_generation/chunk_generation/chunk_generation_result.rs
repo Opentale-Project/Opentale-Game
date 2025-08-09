@@ -9,4 +9,5 @@ pub struct ChunkGenerationResult {
     pub chunk_pos: LodPosition,
     pub chunk_tree_position: ChunkTreePos,
     pub chunk_stack_offset: i32,
+    pub chunk_min_height: i32,
 }

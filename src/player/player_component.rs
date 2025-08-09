@@ -1,18 +1,19 @@
-use avian3d::prelude::{Collider, Friction, LockedAxes, RigidBody};
 use bevy::{
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
     pbr::Atmosphere,
     prelude::*,
-    render::camera::Exposure,
+    render::{
+        camera::Exposure,
+        view::{ColorGrading, ColorGradingGlobal},
+    },
 };
 use bevy_panorbit_camera::PanOrbitCamera;
-use bevy_tnua::{
-    TnuaObstacleRadar, control_helpers::TnuaBlipReuseAvoidance,
-    prelude::TnuaController,
-};
-use bevy_tnua_avian3d::TnuaAvian3dSensorShape;
 
 use crate::{
+    physics::{
+        collider::Collider, physics_object::DynamicPhysicsObject,
+        physics_position::PhysicsPosition,
+    },
     player::player_state::PlayerState,
     world_generation::chunk_loading::chunk_loader::ChunkLoader,
 };
@@ -39,15 +40,16 @@ pub(super) fn spawn_player(
 
     // Player
     commands.spawn((
-        RigidBody::Dynamic,
-        Friction::new(0.),
+        DynamicPhysicsObject {
+            step_height: 1.1,
+            ..Default::default()
+        },
+        PhysicsPosition {
+            position: Vec3::new(0., 2200., 0.),
+            ..Default::default()
+        },
         Transform::from_xyz(0., 2200., 0.),
-        Collider::cuboid(0.8, 1.8, 0.8),
-        TnuaController::default(),
-        TnuaAvian3dSensorShape(Collider::cuboid(0.79, 0.0, 0.79)),
-        TnuaObstacleRadar::new(2., 2.),
-        TnuaBlipReuseAvoidance::default(),
-        LockedAxes::ROTATION_LOCKED,
+        Collider::aabb(Vec3::new(0.8, 1.8, 0.8), Vec3::ZERO),
         Player { fly: false },
         ChunkLoader::default(),
         Name::new("Player"),
@@ -57,6 +59,13 @@ pub(super) fn spawn_player(
         Camera3d::default(),
         Camera {
             hdr: true,
+            ..Default::default()
+        },
+        ColorGrading {
+            global: ColorGradingGlobal {
+                post_saturation: 1.15,
+                ..Default::default()
+            },
             ..Default::default()
         },
         Msaa::Sample4,

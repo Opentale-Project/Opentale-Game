@@ -1,16 +1,18 @@
-use avian3d::prelude::{CollisionMargin, RigidBody};
 use bevy::{
     prelude::*,
     tasks::{Task, TaskPool, TaskPoolBuilder},
 };
 use futures_lite::future;
 
-use crate::world_generation::{
-    chunk_generation::{
-        chunk::Chunk, chunk_generation_result::ChunkGenerationResult,
-        chunk_triangles::ChunkTriangles,
+use crate::{
+    physics::physics_object::StaticPhysicsObject,
+    world_generation::{
+        chunk_generation::{
+            chunk::Chunk, chunk_generation_result::ChunkGenerationResult,
+            chunk_triangles::ChunkTriangles,
+        },
+        generation_assets::GenerationAssets,
     },
-    generation_assets::GenerationAssets,
 };
 
 #[derive(Component)]
@@ -53,6 +55,11 @@ pub fn set_generated_chunks(
                 chunk_generation_result.chunk_tree_position,
             );
 
+        let chunk_position = chunk_pos.to_absolute(
+            chunk_generation_result.chunk_min_height,
+            chunk_generation_result.chunk_pos.lod,
+        );
+
         current_entity.remove::<ChunkTask>().insert((
             Chunk {
                 tree_position: chunk_generation_result.chunk_tree_position,
@@ -60,15 +67,11 @@ pub fn set_generated_chunks(
                 generate_above: chunk_generation_result.generate_above,
                 lod_position: chunk_generation_result.chunk_pos,
             },
-            Transform::from_translation(chunk_pos.to_absolute()),
+            Transform::from_translation(chunk_position),
         ));
 
         if let Some(collider) = chunk_generation_result.mesh_result.collider {
-            current_entity.insert((
-                collider,
-                RigidBody::Static,
-                CollisionMargin(0.01),
-            ));
+            current_entity.insert((collider, StaticPhysicsObject));
         }
 
         // let triangle_count = mesh.indices().unwrap().len() / 3;

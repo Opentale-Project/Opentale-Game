@@ -1,4 +1,3 @@
-use avian3d::PhysicsPlugins;
 use bevy::pbr::ExtendedMaterial;
 use bevy::pbr::light_consts::lux;
 use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
@@ -9,6 +8,7 @@ use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::PanOrbitCameraPlugin;
 use opentale::animation::animation_plugin::OpentaleAnimationPlugin;
 use opentale::debug_tools::debug_plugin::OpentaleDebugPlugin;
+use opentale::physics::physics_plugin::PhysicsPlugin;
 use opentale::player::player_plugin::PlayerPlugin;
 use opentale::ui::game_ui_plugin::GameUiPlugin;
 use opentale::world_generation::array_texture::ArrayTextureMaterial;
@@ -30,7 +30,7 @@ fn main() {
                 .set(ImagePlugin::default_nearest()),
             PanOrbitCameraPlugin,
             WorldGenerationPlugin,
-            PhysicsPlugins::default(),
+            PhysicsPlugin,
             PlayerPlugin,
             WireframePlugin { ..default() },
             OpentaleAnimationPlugin,
